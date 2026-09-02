@@ -1,0 +1,17 @@
+{
+  "name": "Faris VIP Umrah Transport",
+  "short_name": "Faris Umrah",
+  "description": "VIP Umrah transportation across Makkah, Madinah, Jeddah.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#F1F4F8",
+  "theme_color": "#087A5A",
+  "icons": [
+    {
+      "src": "/image.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

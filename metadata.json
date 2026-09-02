@@ -1,0 +1,6 @@
+{
+  "name": "Faris VIP Umrah Transport",
+  "description": "Premium Umrah transportation, VIP private transfers, airport transfers, and Ziyarat tours in Saudi Arabia.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

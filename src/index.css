@@ -1,0 +1,58 @@
+@import "tailwindcss";
+
+
+@theme {
+  --color-saudi-green: #087A5A;
+  --color-saudi-emerald: #05513F;
+  --color-luxury-gold: #B8922E;
+  --color-dark-charcoal: #111827;
+  --color-soft-ivory: #F1F4F8;
+  --color-section-neutral: #E9EEF4;
+}
+
+html, body, #root {
+  width: 100%;
+  max-width: 100vw;
+  overflow-x: clip;
+}
+
+body {
+  @apply bg-[#F1F4F8] text-dark-charcoal font-sans;
+}
+
+/* RTL Support */
+[dir="rtl"] {
+  text-align: right;
+}
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background-color: rgba(255,255,255,0.2);
+  border-radius: 20px;
+}
+
+/* Leaflet Custom Marker & Map Enhancements */
+.leaflet-div-icon.custom-ziyarat-pin {
+  background: transparent !important;
+  border: none !important;
+}
+
+.leaflet-container {
+  font-family: inherit;
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+}
+
+/* Custom NProgress styling */
+#nprogress .bar {
+  background: var(--color-luxury-gold) !important;
+  height: 3px !important;
+}
+#nprogress .peg {
+  box-shadow: 0 0 10px var(--color-luxury-gold), 0 0 5px var(--color-luxury-gold) !important;
+}
