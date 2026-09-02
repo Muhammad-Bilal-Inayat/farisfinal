@@ -64,36 +64,6 @@ export const STANDARD_ROUTES_META = [
 
 export const FLEET_VEHICLES_DATA: VehicleFleet[] = [
   {
-    id: 'camry',
-    name: 'Toyota Camry',
-    nameAr: 'تويوتا كامري',
-    category: 'Sedan',
-    passengers: '4 Passengers',
-    passengersAr: '4 ركاب',
-    luggage: '4 Big Size',
-    luggageAr: '4 حقائب كبيرة',
-    image: 'https://images.unsplash.com/photo-1621007947382-bb3c399b52c5?auto=format&fit=crop&w=600&q=60&fm=webp',
-    routes: [
-      { routeId: 'jed_mak', routeNameEn: 'Jeddah Airport to Makkah Hotel', routeNameAr: 'مطار جدة إلى فنادق مكة', price: 200, pickup: 'Jeddah Airport (JED)', destination: 'Makkah Hotel / Haram' },
-      { routeId: 'mak_jed', routeNameEn: 'Makkah Hotel to Jeddah Airport', routeNameAr: 'فندق مكة إلى مطار جدة', price: 160, pickup: 'Makkah Hotel / Haram', destination: 'Jeddah Airport (JED)' },
-      { routeId: 'mak_med', routeNameEn: 'Makkah Hotel to Madina Hotel', routeNameAr: 'فندق مكة إلى فندق المدينة', price: 350, pickup: 'Makkah Hotel / Haram', destination: 'Madinah Hotel / Markazia' },
-      { routeId: 'med_mak', routeNameEn: 'Madina Hotel to Makkah Hotel', routeNameAr: 'فندق المدينة إلى فندق مكة', price: 350, pickup: 'Madinah Hotel / Markazia', destination: 'Makkah Hotel / Haram' },
-      { routeId: 'med_air_med', routeNameEn: 'Madina Airport to Madina Hotel', routeNameAr: 'مطار المدينة إلى فندق المدينة', price: 150, pickup: 'Madinah Airport (MED)', destination: 'Madinah Hotel / Markazia' },
-      { routeId: 'med_med_air', routeNameEn: 'Madina Hotel to Madina Airport', routeNameAr: 'فندق المدينة إلى مطار المدينة', price: 100, pickup: 'Madinah Hotel / Markazia', destination: 'Madinah Airport (MED)' },
-      { routeId: 'med_jed', routeNameEn: 'Madina Hotel to Jeddah', routeNameAr: 'فندق المدينة إلى جدة', price: 350, pickup: 'Madinah Hotel / Markazia', destination: 'Jeddah Hotel / Corniche' },
-      { routeId: 'jed_med', routeNameEn: 'Jeddah Airport to Madina Hotel', routeNameAr: 'مطار جدة إلى فندق المدينة', price: 380, pickup: 'Jeddah Airport (JED)', destination: 'Madinah Hotel / Markazia' },
-      { routeId: 'med_mak_badr', routeNameEn: 'Madina to Makkah by Badar', routeNameAr: 'المدينة إلى مكة عبر بدر', price: 430, pickup: 'Madinah Hotel / Markazia', destination: 'Makkah via Badr' },
-      { routeId: 'med_badr', routeNameEn: 'Madina to Badar', routeNameAr: 'المدينة المنورة إلى غزوة بدر', price: 300, pickup: 'Madinah Hotel / Markazia', destination: 'Badr Ziyarat' },
-      { routeId: 'mak_taif', routeNameEn: 'Makkah to Taif Ziyarat', routeNameAr: 'مكة إلى مزارات الطائف', price: 350, pickup: 'Makkah Hotel / Haram', destination: 'Taif Ziyarat Tour' },
-      { routeId: 'mak_ziyarat', routeNameEn: 'Makkah Ziyarat', routeNameAr: 'مزارات مكة المكرمة', price: 200, pickup: 'Makkah Hotel / Haram', destination: 'Makkah Ziyarat Tour' },
-      { routeId: 'med_ziyarat', routeNameEn: 'Madina Ziyarat', routeNameAr: 'مزارات المدينة المنورة', price: 200, pickup: 'Madinah Hotel / Markazia', destination: 'Madinah Ziyarat Tour' },
-      { routeId: 'jed_jed_hotel', routeNameEn: 'Jeddah Airport to Jeddah Hotel', routeNameAr: 'مطار جدة إلى فنادق جدة', price: 200, pickup: 'Jeddah Airport (JED)', destination: 'Jeddah Hotel / Corniche' },
-      { routeId: 'hotel_train', routeNameEn: 'Hotel to Train Station', routeNameAr: 'من الفندق إلى محطة القطار', price: 150, pickup: 'Makkah Hotel / Haram', destination: 'Makkah Train Station (HHR)' },
-      { routeId: 'train_hotel', routeNameEn: 'Train Station to Hotel', routeNameAr: 'من محطة القطار إلى الفندق', price: 200, pickup: 'Makkah Train Station (HHR)', destination: 'Makkah Hotel / Haram' },
-      { routeId: 'full_day_8h', routeNameEn: 'Full Day (8 Hours)', routeNameAr: 'خدمة يوم كامل (8 ساعات)', price: 600, pickup: 'Full Day Chauffeur', destination: '8 Hours City Charter' },
-    ]
-  },
-  {
     id: 'gmc-xl',
     name: 'GMC XL 2025',
     nameAr: 'جمس يوكون إكس إل 2025',
@@ -102,7 +72,7 @@ export const FLEET_VEHICLES_DATA: VehicleFleet[] = [
     passengersAr: '7 ركاب',
     luggage: '8 Big Size',
     luggageAr: '8 حقائب كبيرة',
-    image: 'https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?auto=format&fit=crop&w=600&q=60&fm=webp',
+    image: '/images/fleet/gmc-xl.jpg',
     routes: [
       { routeId: 'jed_mak', routeNameEn: 'Jeddah Airport to Makkah Hotel', routeNameAr: 'مطار جدة إلى فنادق مكة', price: 600, pickup: 'Jeddah Airport (JED)', destination: 'Makkah Hotel / Haram' },
       { routeId: 'mak_jed', routeNameEn: 'Makkah Hotel to Jeddah Airport', routeNameAr: 'فندق مكة إلى مطار جدة', price: 450, pickup: 'Makkah Hotel / Haram', destination: 'Jeddah Airport (JED)' },
@@ -124,6 +94,36 @@ export const FLEET_VEHICLES_DATA: VehicleFleet[] = [
     ]
   },
   {
+    id: 'camry',
+    name: 'Toyota Camry',
+    nameAr: 'تويوتا كامري',
+    category: 'Sedan',
+    passengers: '4 Passengers',
+    passengersAr: '4 ركاب',
+    luggage: '4 Big Size',
+    luggageAr: '4 حقائب كبيرة',
+    image: '/images/fleet/toyota-camry.jpg',
+    routes: [
+      { routeId: 'jed_mak', routeNameEn: 'Jeddah Airport to Makkah Hotel', routeNameAr: 'مطار جدة إلى فنادق مكة', price: 200, pickup: 'Jeddah Airport (JED)', destination: 'Makkah Hotel / Haram' },
+      { routeId: 'mak_jed', routeNameEn: 'Makkah Hotel to Jeddah Airport', routeNameAr: 'فندق مكة إلى مطار جدة', price: 160, pickup: 'Makkah Hotel / Haram', destination: 'Jeddah Airport (JED)' },
+      { routeId: 'mak_med', routeNameEn: 'Makkah Hotel to Madina Hotel', routeNameAr: 'فندق مكة إلى فندق المدينة', price: 350, pickup: 'Makkah Hotel / Haram', destination: 'Madinah Hotel / Markazia' },
+      { routeId: 'med_mak', routeNameEn: 'Madina Hotel to Makkah Hotel', routeNameAr: 'فندق المدينة إلى فندق مكة', price: 350, pickup: 'Madinah Hotel / Markazia', destination: 'Makkah Hotel / Haram' },
+      { routeId: 'med_air_med', routeNameEn: 'Madina Airport to Madina Hotel', routeNameAr: 'مطار المدينة إلى فندق المدينة', price: 150, pickup: 'Madinah Airport (MED)', destination: 'Madinah Hotel / Markazia' },
+      { routeId: 'med_med_air', routeNameEn: 'Madina Hotel to Madina Airport', routeNameAr: 'فندق المدينة إلى مطار المدينة', price: 100, pickup: 'Madinah Hotel / Markazia', destination: 'Madinah Airport (MED)' },
+      { routeId: 'med_jed', routeNameEn: 'Madina Hotel to Jeddah', routeNameAr: 'فندق المدينة إلى جدة', price: 350, pickup: 'Madinah Hotel / Markazia', destination: 'Jeddah Hotel / Corniche' },
+      { routeId: 'jed_med', routeNameEn: 'Jeddah Airport to Madina Hotel', routeNameAr: 'مطار جدة إلى فندق المدينة', price: 380, pickup: 'Jeddah Airport (JED)', destination: 'Madinah Hotel / Markazia' },
+      { routeId: 'med_mak_badr', routeNameEn: 'Madina to Makkah by Badar', routeNameAr: 'المدينة إلى مكة عبر بدر', price: 430, pickup: 'Madinah Hotel / Markazia', destination: 'Makkah via Badr' },
+      { routeId: 'med_badr', routeNameEn: 'Madina to Badar', routeNameAr: 'المدينة المنورة إلى غزوة بدر', price: 300, pickup: 'Madinah Hotel / Markazia', destination: 'Badr Ziyarat' },
+      { routeId: 'mak_taif', routeNameEn: 'Makkah to Taif Ziyarat', routeNameAr: 'مكة إلى مزارات الطائف', price: 350, pickup: 'Makkah Hotel / Haram', destination: 'Taif Ziyarat Tour' },
+      { routeId: 'mak_ziyarat', routeNameEn: 'Makkah Ziyarat', routeNameAr: 'مزارات مكة المكرمة', price: 200, pickup: 'Makkah Hotel / Haram', destination: 'Makkah Ziyarat Tour' },
+      { routeId: 'med_ziyarat', routeNameEn: 'Madina Ziyarat', routeNameAr: 'مزارات المدينة المنورة', price: 200, pickup: 'Madinah Hotel / Markazia', destination: 'Madinah Ziyarat Tour' },
+      { routeId: 'jed_jed_hotel', routeNameEn: 'Jeddah Airport to Jeddah Hotel', routeNameAr: 'مطار جدة إلى فنادق جدة', price: 200, pickup: 'Jeddah Airport (JED)', destination: 'Jeddah Hotel / Corniche' },
+      { routeId: 'hotel_train', routeNameEn: 'Hotel to Train Station', routeNameAr: 'من الفندق إلى محطة القطار', price: 150, pickup: 'Makkah Hotel / Haram', destination: 'Makkah Train Station (HHR)' },
+      { routeId: 'train_hotel', routeNameEn: 'Train Station to Hotel', routeNameAr: 'من محطة القطار إلى الفندق', price: 200, pickup: 'Makkah Train Station (HHR)', destination: 'Makkah Hotel / Haram' },
+      { routeId: 'full_day_8h', routeNameEn: 'Full Day (8 Hours)', routeNameAr: 'خدمة يوم كامل (8 ساعات)', price: 600, pickup: 'Full Day Chauffeur', destination: '8 Hours City Charter' },
+    ]
+  },
+  {
     id: 'h1-hyundai',
     name: 'H1 HYUNDAI',
     nameAr: 'هيونداي H1 عائلي',
@@ -132,7 +132,7 @@ export const FLEET_VEHICLES_DATA: VehicleFleet[] = [
     passengersAr: '7 ركاب',
     luggage: '8 Big Size',
     luggageAr: '8 حقائب كبيرة',
-    image: 'https://images.unsplash.com/photo-1549317661-bd32c8ce0db2?auto=format&fit=crop&w=600&q=60&fm=webp',
+    image: '/images/fleet/h1-hyundai.jpg',
     routes: [
       { routeId: 'jed_mak', routeNameEn: 'Jeddah Airport to Makkah Hotel', routeNameAr: 'مطار جدة إلى فنادق مكة', price: 300, pickup: 'Jeddah Airport (JED)', destination: 'Makkah Hotel / Haram' },
       { routeId: 'mak_jed', routeNameEn: 'Makkah Hotel to Jeddah Airport', routeNameAr: 'فندق مكة إلى مطار جدة', price: 250, pickup: 'Makkah Hotel / Haram', destination: 'Jeddah Airport (JED)' },
@@ -162,7 +162,7 @@ export const FLEET_VEHICLES_DATA: VehicleFleet[] = [
     passengersAr: '8 ركاب',
     luggage: '8 Big Size',
     luggageAr: '8 حقائب كبيرة',
-    image: 'https://images.unsplash.com/photo-1617531653332-bd46c24f2068?auto=format&fit=crop&w=600&q=60&fm=webp',
+    image: '/images/fleet/staria.jpg',
     routes: [
       { routeId: 'jed_mak', routeNameEn: 'Jeddah Airport to Makkah Hotel', routeNameAr: 'مطار جدة إلى فنادق مكة', price: 350, pickup: 'Jeddah Airport (JED)', destination: 'Makkah Hotel / Haram' },
       { routeId: 'mak_jed', routeNameEn: 'Makkah Hotel to Jeddah Airport', routeNameAr: 'فندق مكة إلى مطار جدة', price: 250, pickup: 'Makkah Hotel / Haram', destination: 'Jeddah Airport (JED)' },
@@ -192,7 +192,7 @@ export const FLEET_VEHICLES_DATA: VehicleFleet[] = [
     passengersAr: '4 ركاب',
     luggage: '3 Big Size',
     luggageAr: '3 حقائب كبيرة',
-    image: 'https://images.unsplash.com/photo-1549317661-bd32c8ce0db2?auto=format&fit=crop&w=600&q=60&fm=webp',
+    image: '/images/fleet/ford-taurus.jpg',
     routes: [
       { routeId: 'jed_mak', routeNameEn: 'Jeddah Airport to Makkah Hotel', routeNameAr: 'مطار جدة إلى فنادق مكة', price: 350, pickup: 'Jeddah Airport (JED)', destination: 'Makkah Hotel / Haram' },
       { routeId: 'mak_jed', routeNameEn: 'Makkah Hotel to Jeddah Airport', routeNameAr: 'فندق مكة إلى مطار جدة', price: 250, pickup: 'Makkah Hotel / Haram', destination: 'Jeddah Airport (JED)' },
@@ -222,7 +222,7 @@ export const FLEET_VEHICLES_DATA: VehicleFleet[] = [
     passengersAr: '12 راكباً',
     luggage: '12 Big Size',
     luggageAr: '12 حقيبة كبيرة',
-    image: 'https://images.unsplash.com/photo-1570125909232-eb263c188f7e?auto=format&fit=crop&w=600&q=60&fm=webp',
+    image: '/images/fleet/toyota-hiace.jpg',
     routes: [
       { routeId: 'jed_mak', routeNameEn: 'Jeddah Airport to Makkah Hotel', routeNameAr: 'مطار جدة إلى فنادق مكة', price: 400, pickup: 'Jeddah Airport (JED)', destination: 'Makkah Hotel / Haram' },
       { routeId: 'mak_jed', routeNameEn: 'Makkah Hotel to Jeddah Airport', routeNameAr: 'فندق مكة إلى مطار جدة', price: 300, pickup: 'Makkah Hotel / Haram', destination: 'Jeddah Airport (JED)' },
@@ -252,7 +252,7 @@ export const FLEET_VEHICLES_DATA: VehicleFleet[] = [
     passengersAr: '4 ركاب',
     luggage: '3 Big Size',
     luggageAr: '3 حقائب كبيرة',
-    image: 'https://images.unsplash.com/photo-1563720223185-11003d516935?auto=format&fit=crop&w=600&q=60&fm=webp',
+    image: '/images/fleet/lexus-es300h.jpg',
     routes: [
       { routeId: 'jed_mak', routeNameEn: 'Jeddah Airport to Makkah Hotel', routeNameAr: 'مطار جدة إلى فنادق مكة', price: 550, pickup: 'Jeddah Airport (JED)', destination: 'Makkah Hotel / Haram' },
       { routeId: 'mak_jed', routeNameEn: 'Makkah Hotel to Jeddah Airport', routeNameAr: 'فندق مكة إلى مطار جدة', price: 400, pickup: 'Makkah Hotel / Haram', destination: 'Jeddah Airport (JED)' },
@@ -282,7 +282,7 @@ export const FLEET_VEHICLES_DATA: VehicleFleet[] = [
     passengersAr: '20–22 راكباً',
     luggage: '25 Big Size',
     luggageAr: '25 حقيبة كبيرة',
-    image: 'https://images.unsplash.com/photo-1570125909232-eb263c188f7e?auto=format&fit=crop&w=600&q=60&fm=webp',
+    image: '/images/fleet/toyota-coaster.jpg',
     routes: [
       { routeId: 'jed_mak', routeNameEn: 'Jeddah Airport to Makkah Hotel', routeNameAr: 'مطار جدة إلى فنادق مكة', price: 650, pickup: 'Jeddah Airport (JED)', destination: 'Makkah Hotel / Haram' },
       { routeId: 'mak_jed', routeNameEn: 'Makkah Hotel to Jeddah Airport', routeNameAr: 'فندق مكة إلى مطار جدة', price: 500, pickup: 'Makkah Hotel / Haram', destination: 'Jeddah Airport (JED)' },
@@ -312,7 +312,7 @@ export const FLEET_VEHICLES_DATA: VehicleFleet[] = [
     passengersAr: '50 راكباً',
     luggage: '50–55 Big Size',
     luggageAr: '50–55 حقيبة كبيرة',
-    image: 'https://images.unsplash.com/photo-1544620347-c4fd4a3d5957?auto=format&fit=crop&w=600&q=60&fm=webp',
+    image: '/images/fleet/bus-2025.jpg',
     routes: [
       { routeId: 'jed_mak', routeNameEn: 'Jeddah Airport to Makkah Hotel', routeNameAr: 'مطار جدة إلى فنادق مكة', price: 850, pickup: 'Jeddah Airport (JED)', destination: 'Makkah Hotel / Haram' },
       { routeId: 'mak_jed', routeNameEn: 'Makkah Hotel to Jeddah Airport', routeNameAr: 'فندق مكة إلى مطار جدة', price: 650, pickup: 'Makkah Hotel / Haram', destination: 'Jeddah Airport (JED)' },

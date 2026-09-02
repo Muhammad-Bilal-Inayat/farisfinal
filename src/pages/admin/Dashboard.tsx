@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { 
   Calendar, Users, Car, Map, Settings, Monitor, MessageSquare, LogOut, 
   LayoutDashboard, Banknote, Globe, ExternalLink, Menu, X, 
-  RefreshCw, ShieldCheck, CheckCircle2, AlertCircle, Trash2, Zap
+  RefreshCw, ShieldCheck, CheckCircle2, AlertCircle, Trash2, Zap, Star
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import BookingsAdmin from './BookingsAdmin';
@@ -15,14 +15,39 @@ import SettingsAdmin from './SettingsAdmin';
 import DashboardHome from './DashboardHome';
 import RatesAdmin from "./RatesAdmin";
 import PageBuilderAdmin from "./PageBuilderAdmin";
-import { Code, Eye } from 'lucide-react';
+import ReviewsAdmin from "./ReviewsAdmin";
+import DriversAdmin from "./DriversAdmin";
+import UsersAdmin from './UsersAdmin';
+import ActivityAdmin from './ActivityAdmin';
+import DriverDashboard from './DriverDashboard';
+import LanguageSwitcher from "../../components/LanguageSwitcher";
+import { Code, Eye, UserCheck, Activity } from 'lucide-react';
 import { clearAppCache } from '../../utils/registerServiceWorker';
 
 
-export default function AdminDashboard() {
+export default function AdminDashboard({ initialTab }: { initialTab?: string }) {
   const { t, i18n } = useTranslation();
-  const [activeTab, setActiveTab] = useState('dashboard');
+  const getInitialTab = () => {
+    if (initialTab) return initialTab;
+    if (typeof window !== 'undefined') {
+      const path = window.location.pathname.toLowerCase();
+      if (path.includes('/admin/drivers')) return 'drivers';
+      if (path.includes('/admin/orders') || path.includes('/admin/bookings')) return 'bookings';
+      if (path.includes('/admin/vehicles')) return 'vehicles';
+      if (path.includes('/admin/customers')) return 'customers';
+    }
+    return 'dashboard';
+  };
+  const [activeTab, setActiveTab] = useState(getInitialTab());
   const [token, setToken] = useState(localStorage.getItem('adminToken'));
+  const [currentUser, setCurrentUser] = useState<any>(() => {
+    try {
+      const stored = localStorage.getItem('adminUser');
+      return stored ? JSON.parse(stored) : null;
+    } catch (e) {
+      return null;
+    }
+  });
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [loginError, setLoginError] = useState('');
@@ -97,7 +122,11 @@ export default function AdminDashboard() {
   useEffect(() => {
     if (token) {
       fetchBadgeCounts();
-      const interval = setInterval(fetchBadgeCounts, 30000);
+      const interval = setInterval(() => {
+        if (!document.hidden) {
+          fetchBadgeCounts();
+        }
+      }, 60000);
       return () => clearInterval(interval);
     }
   }, [token, refreshKey]);
@@ -115,6 +144,14 @@ export default function AdminDashboard() {
       const data = await res.json();
       if (data.token) {
         localStorage.setItem('adminToken', data.token);
+        if (data.user) {
+          localStorage.setItem('adminUser', JSON.stringify(data.user));
+          setCurrentUser(data.user);
+        } else {
+          const fallbackUser = { role: username === 'vip123' ? 'master_admin' : 'admin', name: username };
+          localStorage.setItem('adminUser', JSON.stringify(fallbackUser));
+          setCurrentUser(fallbackUser);
+        }
         setToken(data.token);
       } else {
         setLoginError(data.error || (i18n.language === 'ar' ? 'بيانات الدخول غير صحيحة' : 'Invalid credentials'));
@@ -128,8 +165,14 @@ export default function AdminDashboard() {
 
   const handleLogout = () => {
     localStorage.removeItem('adminToken');
+    localStorage.removeItem('adminUser');
     setToken(null);
+    setCurrentUser(null);
   };
+
+  if (token && currentUser?.role === 'driver') {
+    return <DriverDashboard onLogout={handleLogout} />;
+  }
 
   if (!token) {
     return (
@@ -233,6 +276,7 @@ export default function AdminDashboard() {
     {
       group: t('admin_fleet'),
       items: [
+        { id: 'drivers', icon: UserCheck, label: i18n.language === 'ar' ? 'السائقين' : 'Drivers' },
         { id: 'vehicles', icon: Car, label: t('vehicles') },
         { id: 'routes', icon: Map, label: t('admin_routes') },
         { id: 'rates', icon: Banknote, label: t('admin_rates') }
@@ -241,13 +285,22 @@ export default function AdminDashboard() {
     {
       group: i18n.language === 'ar' ? 'إدارة الصفحات والمحتوى' : 'Pages & CMS',
       items: [
-        
-        
+        { id: 'testimonials', icon: Star, label: i18n.language === 'ar' ? 'تقييمات وآراء العملاء' : 'Guest Reviews & Ratings' },
         { id: 'page_builder', icon: LayoutDashboard, label: i18n.language === 'ar' ? 'بناء الصفحة الرئيسية' : 'Page Builder (Home)' },
         { id: 'settings', icon: Settings, label: t('admin_settings') }
       ]
     }
   ];
+
+  if (currentUser?.role === 'master_admin') {
+    navGroups.push({
+      group: i18n.language === 'ar' ? 'الأمان والصلاحيات العليا' : 'Master Security & Audit',
+      items: [
+        { id: 'users', icon: ShieldCheck, label: i18n.language === 'ar' ? 'إدارة المسؤولين' : 'Admin Users' },
+        { id: 'activity', icon: Activity, label: i18n.language === 'ar' ? 'سجل النشاط' : 'Activity Logs' }
+      ]
+    });
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex h-screen bg-slate-100 overflow-hidden font-sans text-slate-800">
@@ -416,18 +469,7 @@ export default function AdminDashboard() {
             </button>
 
             {/* Language Switcher */}
-            <button 
-              onClick={() => {
-                const newLang = i18n.language === 'en' ? 'ar' : 'en';
-                i18n.changeLanguage(newLang);
-                document.documentElement.dir = newLang === 'ar' ? 'rtl' : 'ltr';
-                document.documentElement.lang = newLang;
-              }}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-gray-50 text-[var(--color-saudi-emerald)] border border-gray-300 hover:bg-gray-200 transition-colors"
-            >
-              <Globe size={14} />
-              <span>{i18n.language === 'en' ? 'العربية' : 'English'}</span>
-            </button>
+            <LanguageSwitcher variant="admin" />
 
             {/* Online Status Pill */}
             <div className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-50 text-gray-900 text-xs font-bold border border-gray-300/60">
@@ -450,15 +492,17 @@ export default function AdminDashboard() {
           <div className="max-w-7xl mx-auto pb-16">
             {activeTab === 'dashboard' && <DashboardHome setActiveTab={setActiveTab} />}
             {activeTab === 'bookings' && <BookingsAdmin />}
+            {activeTab === 'drivers' && <DriversAdmin />}
             {activeTab === 'vehicles' && <ManageVehicles />}
             {activeTab === 'routes' && <RoutesAdmin />}
             {activeTab === 'rates' && <RatesAdmin />}
             {activeTab === 'customers' && <CustomersAdmin />}
             {activeTab === 'messages' && <MessagesAdmin />}
             {activeTab === 'settings' && <SettingsAdmin />}
-            
-            
+            {activeTab === 'testimonials' && <ReviewsAdmin />}
             {activeTab === 'page_builder' && <PageBuilderAdmin />}
+            {activeTab === 'users' && <UsersAdmin />}
+            {activeTab === 'activity' && <ActivityAdmin />}
           </div>
         </div>
       </main>

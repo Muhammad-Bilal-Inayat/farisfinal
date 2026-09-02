@@ -39,7 +39,7 @@ export default function Privacy() {
 
         <div className="space-y-4">
           <h2 className="text-2xl font-bold text-[var(--color-saudi-emerald)] border-b pb-2">
-            {isAr ? '٢. ملفات تعريف الارتباط والإعلانات (Google AdSense)' : '2. Cookies and Advertising (Google AdSense)'}
+            {isAr ? '٢. ملفات تعريف الارتباط والإعلانات الرقمية' : '2. Cookies and Digital Advertising'}
           </h2>
           <p>
             {isAr 

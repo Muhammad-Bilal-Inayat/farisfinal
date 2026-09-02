@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import ResponsiveImage from './ResponsiveImage';
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { 
   MapPin, 
   Navigation, 
@@ -309,6 +310,8 @@ export const ZIYARAT_CIRCUITS: Record<'makkah' | 'madinah', ZiyaratCircuit> = {
 };
 
 export default function ZiyaratMap() {
+  const { t, i18n } = useTranslation();
+  const isAr = i18n.language === 'ar';
   const [selectedCity, setSelectedCity] = useState<'makkah' | 'madinah'>('makkah');
   const [activeLocationId, setActiveLocationId] = useState<string>('jabal-al-nour');
   const [filterCategory, setFilterCategory] = useState<string>('all');
@@ -446,13 +449,17 @@ export default function ZiyaratMap() {
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           <div>
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold bg-white/10 text-emerald-300 mb-2 backdrop-blur-xs">
-              <Compass size={14} className="text-[var(--color-luxury-gold)]" /> Interactive Holy Route Planner
+              <Compass size={14} className="text-[var(--color-luxury-gold)]" /> {isAr ? 'مخطط مسار المزارات والمعالم التفاعلي' : 'Interactive Holy Route Planner'}
             </div>
             <h2 className="text-xl sm:text-2xl md:text-3xl font-black text-white tracking-tight">
-              {circuit.title}
+              {isAr ? circuit.arabicTitle : circuit.title}
             </h2>
             <p className="text-xs sm:text-sm text-emerald-200/80 mt-1 max-w-2xl font-light">
-              {circuit.subtitle}
+              {isAr 
+                ? (selectedCity === 'makkah' 
+                    ? 'جولة مباركة وشاملة لـ ٦ مواقع مقدسة تشمل غار حراء، غار ثور، مشاعر عرفات، مزدلفة، منى، ومسجد نمرة بسيارات مكيفة فاخرة.'
+                    : 'جولة نبوية عاطرة لـ ٦ معالم تشمل مسجد قباء، جبل الرماة، شهداء أحد، القبلتين، المساجد السبعة، وبساتين تمور العجوة.')
+                : circuit.subtitle}
             </p>
           </div>
 
@@ -467,7 +474,7 @@ export default function ZiyaratMap() {
                   : 'text-emerald-200 hover:text-white'
               }`}
             >
-              🕋 Makkah Circuit ({ZIYARAT_CIRCUITS.makkah.locations.length} Sites)
+              {isAr ? `🕋 جولة مكة (${ZIYARAT_CIRCUITS.makkah.locations.length} مواقع)` : `🕋 Makkah Circuit (${ZIYARAT_CIRCUITS.makkah.locations.length} Sites)`}
             </button>
             <button
               type="button"
@@ -478,7 +485,7 @@ export default function ZiyaratMap() {
                   : 'text-emerald-200 hover:text-white'
               }`}
             >
-              🕌 Madinah Circuit ({ZIYARAT_CIRCUITS.madinah.locations.length} Sites)
+              {isAr ? `🕌 جولة المدينة (${ZIYARAT_CIRCUITS.madinah.locations.length} مواقع)` : `🕌 Madinah Circuit (${ZIYARAT_CIRCUITS.madinah.locations.length} Sites)`}
             </button>
           </div>
         </div>
@@ -490,8 +497,8 @@ export default function ZiyaratMap() {
               <Clock size={16} />
             </div>
             <div>
-              <span className="text-[10px] text-emerald-300 uppercase font-bold block">Tour Duration</span>
-              <span className="font-extrabold text-white">{circuit.totalDuration}</span>
+              <span className="text-[10px] text-emerald-300 uppercase font-bold block">{isAr ? 'مدة الجولة' : 'Tour Duration'}</span>
+              <span className="font-extrabold text-white">{isAr ? (selectedCity === 'makkah' ? '٣.٥ - ٤.٥ ساعات' : '٣ - ٤ ساعات') : circuit.totalDuration}</span>
             </div>
           </div>
 
@@ -500,8 +507,8 @@ export default function ZiyaratMap() {
               <Route size={16} />
             </div>
             <div>
-              <span className="text-[10px] text-emerald-300 uppercase font-bold block">Round Trip</span>
-              <span className="font-extrabold text-white">{circuit.totalDistance}</span>
+              <span className="text-[10px] text-emerald-300 uppercase font-bold block">{isAr ? 'المسافة الإجمالية' : 'Round Trip'}</span>
+              <span className="font-extrabold text-white">{isAr ? (selectedCity === 'makkah' ? 'حوالي ٤٢ كم ذهاب وإياب' : 'حوالي ٣٥ كم ذهاب وإياب') : circuit.totalDistance}</span>
             </div>
           </div>
 
@@ -510,8 +517,8 @@ export default function ZiyaratMap() {
               <Car size={16} />
             </div>
             <div>
-              <span className="text-[10px] text-emerald-300 uppercase font-bold block">Vehicle Type</span>
-              <span className="font-extrabold text-white">Private VIP Chauffeur</span>
+              <span className="text-[10px] text-emerald-300 uppercase font-bold block">{isAr ? 'نوع الخدمة' : 'Vehicle Type'}</span>
+              <span className="font-extrabold text-white">{isAr ? 'سائق خاص VIP' : 'Private VIP Chauffeur'}</span>
             </div>
           </div>
 
@@ -520,8 +527,8 @@ export default function ZiyaratMap() {
               <Calendar size={16} />
             </div>
             <div>
-              <span className="text-[10px] text-emerald-300 uppercase font-bold block">Best Timing</span>
-              <span className="font-extrabold text-white truncate max-w-[120px]" title={circuit.recommendedTime}>{circuit.recommendedTime.split('(')[0]}</span>
+              <span className="text-[10px] text-emerald-300 uppercase font-bold block">{isAr ? 'أفضل توقيت' : 'Best Timing'}</span>
+              <span className="font-extrabold text-white truncate max-w-[120px]" title={circuit.recommendedTime}>{isAr ? (selectedCity === 'makkah' ? 'الصباح الباكر / بعد العصر' : 'الصباح بعد الشروق / العصر') : circuit.recommendedTime.split('(')[0]}</span>
             </div>
           </div>
         </div>
@@ -541,7 +548,7 @@ export default function ZiyaratMap() {
             <div className="absolute top-3 left-3 right-3 z-20 flex items-center justify-between pointer-events-none">
               <div className="bg-white/95 backdrop-blur-md px-3 py-1.5 rounded-xl shadow-md border border-gray-200 pointer-events-auto flex items-center gap-2 text-xs font-bold text-[var(--color-dark-charcoal)]">
                 <span className="w-2.5 h-2.5 rounded-full bg-[var(--color-saudi-green)] animate-pulse"></span>
-                <span>Optimal Route: Stop 1 ➔ {circuit.locations.length}</span>
+                <span>{isAr ? `المسار النموذجي: محطة ١ ➔ ${circuit.locations.length}` : `Optimal Route: Stop 1 ➔ ${circuit.locations.length}`}</span>
               </div>
 
               <div className="flex items-center gap-1.5 pointer-events-auto">
@@ -549,7 +556,7 @@ export default function ZiyaratMap() {
                   type="button"
                   onClick={() => setIsFullscreen(!isFullscreen)}
                   className="bg-white/95 hover:bg-white text-[var(--color-dark-charcoal)] p-2 rounded-xl shadow-md border border-gray-300 transition-all"
-                  title={isFullscreen ? 'Exit Fullscreen' : 'Fullscreen Map'}
+                  title={isFullscreen ? (isAr ? 'إلغاء وضع ملء الشاشة' : 'Exit Fullscreen') : (isAr ? 'ملء الشاشة' : 'Fullscreen Map')}
                 >
                   {isFullscreen ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
                 </button>
@@ -560,7 +567,7 @@ export default function ZiyaratMap() {
             <div className="absolute bottom-3 left-3 right-3 z-20 pointer-events-none flex justify-center">
               <div className="bg-emerald-950/90 backdrop-blur-md text-white text-[11px] font-medium px-3.5 py-1.5 rounded-full shadow-lg border border-emerald-700/60 pointer-events-auto flex items-center gap-2">
                 <Info size={13} className="text-[var(--color-luxury-gold)] shrink-0" />
-                <span>Tap any pin on the map or select a site from the list to view history & photos</span>
+                <span>{isAr ? 'اضغط على أي نقطة على الخريطة أو اختر معلماً لعرض التفاصيل والصور' : 'Tap any pin on the map or select a site from the list to view history & photos'}</span>
               </div>
             </div>
           </div>
@@ -582,7 +589,7 @@ export default function ZiyaratMap() {
                   <div>
                     <div className="flex items-center justify-between gap-2 mb-1">
                       <span className="text-[11px] font-bold text-gray-700 uppercase tracking-wider">
-                        {activeLocation.arabicName}
+                        {isAr ? activeLocation.name : activeLocation.arabicName}
                       </span>
                       <span className="text-[11px] font-bold bg-gray-50 text-[var(--color-saudi-green)] px-2.5 py-0.5 rounded-full border border-gray-300">
                         {activeLocation.distanceFromHaram}
@@ -590,7 +597,7 @@ export default function ZiyaratMap() {
                     </div>
 
                     <h3 className="text-lg sm:text-xl font-bold text-[var(--color-dark-charcoal)] mb-1">
-                      {activeLocation.name}
+                      {isAr ? activeLocation.arabicName : activeLocation.name}
                     </h3>
 
                     <p className="text-xs sm:text-sm text-[var(--color-dark-charcoal)]/80 mb-3 leading-relaxed">
@@ -599,7 +606,7 @@ export default function ZiyaratMap() {
 
                     <div className="bg-gray-50/60 rounded-xl p-3 border border-gray-200/80 mb-3">
                       <span className="text-[11px] font-bold text-[var(--color-dark-charcoal)] block mb-0.5 flex items-center gap-1.5">
-                        <Sparkles size={13} className="text-[var(--color-luxury-gold)]" /> Spiritual & Historical Significance:
+                        <Sparkles size={13} className="text-[var(--color-luxury-gold)]" /> {isAr ? 'الأهمية الدينية والتاريخية للموقع:' : 'Spiritual & Historical Significance:'}
                       </span>
                       <p className="text-xs text-[var(--color-dark-charcoal)]/70 italic leading-snug">
                         "{activeLocation.historicalSignificance}"
@@ -610,14 +617,14 @@ export default function ZiyaratMap() {
                   <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-gray-200">
                     <div className="flex items-center gap-2 text-xs text-gray-900 font-semibold">
                       <Clock size={14} className="text-[var(--color-saudi-green)]" />
-                      <span>Recommended Visit: <strong>{activeLocation.duration}</strong></span>
+                      <span>{isAr ? 'مدة الزيارة الموصى بها: ' : 'Recommended Visit: '}<strong>{activeLocation.duration}</strong></span>
                     </div>
 
                     <Link
                       to={`/booking?service=ziyarat&city=${selectedCity}`}
                       className="bg-[var(--color-luxury-gold)] hover:bg-amber-600 text-white px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider shadow-sm transition-all flex items-center gap-1.5"
                     >
-                      Book This Tour <ChevronRight size={14} />
+                      {isAr ? 'احجز هذه الجولة' : 'Book This Tour'} <ChevronRight size={14} className={isAr ? 'rotate-180' : ''} />
                     </Link>
                   </div>
                 </div>
@@ -641,7 +648,7 @@ export default function ZiyaratMap() {
                   : 'bg-gray-50 text-[var(--color-dark-charcoal)] hover:bg-gray-200'
               }`}
             >
-              All Stops ({circuit.locations.length})
+              {isAr ? `جميع المواقع (${circuit.locations.length})` : `All Stops (${circuit.locations.length})`}
             </button>
             <button
               type="button"
@@ -652,7 +659,7 @@ export default function ZiyaratMap() {
                   : 'bg-gray-50 text-[var(--color-dark-charcoal)] hover:bg-gray-200'
               }`}
             >
-              Masajid
+              {isAr ? 'المساجد' : 'Masajid'}
             </button>
             <button
               type="button"
@@ -663,7 +670,7 @@ export default function ZiyaratMap() {
                   : 'bg-gray-50 text-[var(--color-dark-charcoal)] hover:bg-gray-200'
               }`}
             >
-              Mountains & Caves
+              {isAr ? 'الجبال والغيران' : 'Mountains & Caves'}
             </button>
             <button
               type="button"
@@ -674,7 +681,7 @@ export default function ZiyaratMap() {
                   : 'bg-gray-50 text-[var(--color-dark-charcoal)] hover:bg-gray-200'
               }`}
             >
-              Hajj / Sacred
+              {isAr ? 'المشاعر المقدسة' : 'Hajj / Sacred'}
             </button>
           </div>
 
@@ -682,10 +689,10 @@ export default function ZiyaratMap() {
           <div className="bg-white rounded-2xl p-4 sm:p-5 border border-gray-200 shadow-sm max-h-[640px] overflow-y-auto custom-scrollbar space-y-3">
             <div className="flex items-center justify-between pb-2 border-b border-gray-200">
               <span className="text-xs font-bold uppercase tracking-wider text-gray-900">
-                Itinerary Timeline ({filteredLocations.length} Locations)
+                {isAr ? `جدول المسار الزمني (${filteredLocations.length} مواقع)` : `Itinerary Timeline (${filteredLocations.length} Locations)`}
               </span>
               <span className="text-[11px] text-gray-600 font-medium">
-                Click stop to focus on map
+                {isAr ? 'اضغط لتحديد المعلم على الخريطة' : 'Click stop to focus on map'}
               </span>
             </div>
 
@@ -717,7 +724,7 @@ export default function ZiyaratMap() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between gap-1 mb-0.5">
                       <h4 className={`text-xs sm:text-sm font-bold truncate ${isSelected ? 'text-[var(--color-saudi-green)]' : 'text-[var(--color-dark-charcoal)]'}`}>
-                        {loc.name}
+                        {isAr ? loc.arabicName : loc.name}
                       </h4>
                       {loc.highlightBadge && (
                         <span className="text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded bg-amber-100 text-amber-900 shrink-0">
@@ -727,7 +734,7 @@ export default function ZiyaratMap() {
                     </div>
 
                     <p className="text-[11px] text-gray-900/70 font-medium truncate mb-1">
-                      {loc.arabicName}
+                      {isAr ? loc.name : loc.arabicName}
                     </p>
 
                     <div className="flex items-center gap-3 text-[10px] text-gray-700 font-semibold">
@@ -740,7 +747,7 @@ export default function ZiyaratMap() {
                     </div>
                   </div>
 
-                  <ChevronRight size={16} className={`shrink-0 self-center transition-transform ${isSelected ? 'text-[var(--color-saudi-green)] translate-x-1' : 'text-gray-300'}`} />
+                  <ChevronRight size={16} className={`shrink-0 self-center transition-transform ${isSelected ? 'text-[var(--color-saudi-green)] translate-x-1' : 'text-gray-300'} ${isAr ? 'rotate-180' : ''}`} />
                 </div>
               );
             })}
@@ -750,24 +757,26 @@ export default function ZiyaratMap() {
           <div className="bg-gradient-to-br from-emerald-900 to-emerald-950 text-white p-5 rounded-2xl shadow-md border border-emerald-800 flex flex-col gap-3">
             <div className="flex items-center gap-2">
               <ShieldCheck size={18} className="text-[var(--color-luxury-gold)]" />
-              <h4 className="font-bold text-sm">Need a Custom Itinerary or Extended Stops?</h4>
+              <h4 className="font-bold text-sm">{isAr ? 'هل تحتاج إلى جدول خاص أو زيادة وقت التوقف؟' : 'Need a Custom Itinerary or Extended Stops?'}</h4>
             </div>
             <p className="text-xs text-emerald-200/80 leading-relaxed">
-              Our experienced English & Urdu-speaking drivers provide complete guidance and flexibility for elderly pilgrims and families.
+              {isAr 
+                ? 'سائقونا المحترفون يتحدثون العربية والإنجليزية والأوردو ويوفرون الراحة التامة للعائلات وكبار السن مع التوقف المرن عند كل معلم.'
+                : 'Our experienced English & Urdu-speaking drivers provide complete guidance and flexibility for elderly pilgrims and families.'}
             </p>
             <div className="grid grid-cols-2 gap-2 pt-1">
               <Link
                 to={`/booking?service=ziyarat&city=${selectedCity}`}
                 className="bg-[var(--color-luxury-gold)] hover:bg-amber-600 text-white text-center py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider shadow-sm transition-all"
               >
-                Book {selectedCity === 'makkah' ? 'Makkah' : 'Madinah'} Tour
+                {isAr ? `احجز جولة ${selectedCity === 'makkah' ? 'مكة' : 'المدينة'}` : `Book ${selectedCity === 'makkah' ? 'Makkah' : 'Madinah'} Tour`}
               </Link>
               <button
                 type="button"
-                onClick={() => openWhatsApp('booking', `Assalam-o-Alaikum, I want to book a private VIP Ziyarat tour for ${selectedCity === 'makkah' ? 'Makkah' : 'Madinah'}.`)}
+                onClick={() => openWhatsApp('booking', isAr ? `السلام عليكم، أرغب بحجز جولة مزارات خاصة في ${selectedCity === 'makkah' ? 'مكة المكرمة' : 'المدينة المنورة'}.` : `Assalam-o-Alaikum, I want to book a private VIP Ziyarat tour for ${selectedCity === 'makkah' ? 'Makkah' : 'Madinah'}.`)}
                 className="bg-emerald-800 hover:bg-emerald-700 text-white text-center py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-1"
               >
-                <Phone size={13} /> Inquire WhatsApp
+                <Phone size={13} /> {isAr ? 'استفسار عبر واتساب' : 'Inquire WhatsApp'}
               </button>
             </div>
           </div>

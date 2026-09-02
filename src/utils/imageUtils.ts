@@ -1,3 +1,56 @@
+export const VEHICLE_IMAGE_MAP: Record<string, string> = {
+  'gmc-xl': '/images/fleet/gmc-xl.jpg',
+  'camry': '/images/fleet/toyota-camry.jpg',
+  'h1-hyundai': '/images/fleet/h1-hyundai.jpg',
+  'staria': '/images/fleet/staria.jpg',
+  'ford-taurus': '/images/fleet/ford-taurus.jpg',
+  'toyota-hiace': '/images/fleet/toyota-hiace.jpg',
+  'lexus-es300h': '/images/fleet/lexus-es300h.jpg',
+  'toyota-coaster': '/images/fleet/toyota-coaster.jpg',
+  'bus-2025': '/images/fleet/bus-2025.jpg',
+};
+
+export const getVehicleImageByName = (name: string = '', fallbackUrl?: string): string => {
+  const n = (name || '').toLowerCase();
+  if (n.includes('gmc') || n.includes('yukon') || n.includes('suv')) {
+    return '/images/fleet/gmc-xl.jpg';
+  }
+  if (n.includes('camry') || n.includes('toyota sedan')) {
+    return '/images/fleet/toyota-camry.jpg';
+  }
+  if (n.includes('staria')) {
+    return '/images/fleet/staria.jpg';
+  }
+  if (n.includes('h1') || n.includes('starex') || n.includes('h-1')) {
+    return '/images/fleet/h1-hyundai.jpg';
+  }
+  if (n.includes('taurus') || n.includes('ford')) {
+    return '/images/fleet/ford-taurus.jpg';
+  }
+  if (n.includes('hiace') || n.includes('haice')) {
+    return '/images/fleet/toyota-hiace.jpg';
+  }
+  if (n.includes('lexus') || n.includes('es300')) {
+    return '/images/fleet/lexus-es300h.jpg';
+  }
+  if (n.includes('coaster') || n.includes('coster')) {
+    return '/images/fleet/toyota-coaster.jpg';
+  }
+  if (n.includes('bus') || n.includes('coach')) {
+    return '/images/fleet/bus-2025.jpg';
+  }
+  if (n.includes('van')) {
+    return '/images/fleet/staria.jpg';
+  }
+  if (n.includes('sedan')) {
+    return '/images/fleet/toyota-camry.jpg';
+  }
+  if (fallbackUrl && !fallbackUrl.includes('photo-1549317661-bd32c8ce0db2')) {
+    return fallbackUrl;
+  }
+  return '/images/fleet/gmc-xl.jpg';
+};
+
 export function getResponsiveImageProps(url: string | undefined | null, defaultSizes: string = "(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw") {
   if (!url) return { src: '' };
 

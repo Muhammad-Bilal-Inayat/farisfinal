@@ -40,12 +40,11 @@ export default function Footer() {
           <nav aria-label="Vehicles">
             <h4 className="text-[11px] uppercase tracking-widest font-bold mb-6 text-[var(--color-luxury-gold)]">{t('vehicles')}</h4>
             <ul className="flex flex-col gap-3 text-sm text-gray-200 font-medium">
-              <li><Link to="/vehicles?car=gmc" className="hover:text-[var(--color-saudi-green)] transition-colors" aria-label="GMC Yukon 2025/2026">GMC Yukon (2025/2026)</Link></li>
-              <li><Link to="/vehicles?car=mercedes" className="hover:text-[var(--color-saudi-green)] transition-colors" aria-label="Mercedes S-Class VIP">Mercedes S-Class VIP</Link></li>
+              <li><Link to="/vehicles?car=gmc" className="hover:text-[var(--color-saudi-green)] transition-colors" aria-label="GMC Yukon XL 2025">GMC Yukon XL 2025</Link></li>
+              <li><Link to="/vehicles?car=lexus" className="hover:text-[var(--color-saudi-green)] transition-colors" aria-label="Lexus ES300h 2026">Lexus ES300h 2026</Link></li>
               <li><Link to="/vehicles?car=taurus" className="hover:text-[var(--color-saudi-green)] transition-colors" aria-label="Ford Taurus Executive">Ford Taurus Executive</Link></li>
-              <li><Link to="/vehicles?car=staria" className="hover:text-[var(--color-saudi-green)] transition-colors" aria-label="Hyundai Staria Family Van">Hyundai Staria Family Van</Link></li>
-              <li><Link to="/vehicles?car=h1" className="hover:text-[var(--color-saudi-green)] transition-colors" aria-label="Hyundai H1 Van">Hyundai H1 Van</Link></li>
-              <li><Link to="/vehicles?car=coaster" className="hover:text-[var(--color-saudi-green)] transition-colors" aria-label="VIP Toyota Coaster">VIP Toyota Coaster</Link></li>
+              <li><Link to="/vehicles?car=staria" className="hover:text-[var(--color-saudi-green)] transition-colors" aria-label="Hyundai Staria VIP">Hyundai Staria VIP</Link></li>
+              <li><Link to="/vehicles?car=coaster" className="hover:text-[var(--color-saudi-green)] transition-colors" aria-label="VIP Toyota Coaster 2025">VIP Toyota Coaster 2025</Link></li>
             </ul>
           </nav>
 

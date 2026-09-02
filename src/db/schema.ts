@@ -2,8 +2,28 @@ import { sqliteTable, text, integer } from 'drizzle-orm/sqlite-core';
 
 export const admins = sqliteTable('admins', {
   id: integer('id').primaryKey(),
+  name: text('name').default('Administrator'),
   username: text('username').notNull().unique(),
   passwordHash: text('password_hash').notNull(),
+  role: text('role').default('admin'), // 'master_admin' | 'admin' | 'secondary_admin' | 'manager' | 'editor' | 'driver'
+  status: text('status').default('active'), // 'active' | 'inactive'
+  lastLogin: text('last_login'),
+  createdAt: text('created_at'),
+});
+
+export const activity_logs = sqliteTable('activity_logs', {
+  id: integer('id').primaryKey(),
+  userId: integer('user_id'),
+  username: text('username'),
+  name: text('name'),
+  role: text('role'),
+  action: text('action').notNull(),
+  module: text('module').notNull(),
+  recordId: text('record_id'),
+  description: text('description'),
+  ipAddress: text('ip_address'),
+  userAgent: text('user_agent'),
+  createdAt: text('created_at').notNull(),
 });
 
 export const settings = sqliteTable('settings', {
@@ -82,6 +102,22 @@ export const bookings = sqliteTable('bookings', {
   priceMax: integer('price_max'),
   currency: text('currency').default('SAR'),
   status: text('status').notNull(),
+  driverId: integer('driver_id'),
+  driverNameSnapshot: text('driver_name_snapshot'),
+  driverPhoneSnapshot: text('driver_phone_snapshot'),
+  driverName: text('driver_name'),
+  driverPhone: text('driver_phone'),
+  driverPlate: text('driver_plate'),
+  createdAt: text('created_at').notNull(),
+  updatedAt: text('updated_at'),
+});
+
+export const drivers = sqliteTable('drivers', {
+  id: integer('id').primaryKey(),
+  name: text('name').notNull(),
+  phone: text('phone').notNull(),
+  vehicleInfo: text('vehicle_info'),
+  status: text('status').default('active'), // 'active' | 'inactive'
   createdAt: text('created_at').notNull(),
   updatedAt: text('updated_at'),
 });

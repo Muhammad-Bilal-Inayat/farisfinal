@@ -18,6 +18,7 @@ import { Helmet } from 'react-helmet-async';
 import { useSiteSettings } from '../context/SiteSettingsContext';
 import { useWhatsApp } from '../hooks/useWhatsApp';
 import AdBanner from '../components/AdBanner';
+import { getVehicleImageByName } from '../utils/imageUtils';
 import Breadcrumbs from '../components/Breadcrumbs';
 import PageCustomRenderer from '../components/PageCustomRenderer';
 
@@ -36,17 +37,7 @@ export interface Vehicle {
 }
 
 export const getVehicleImage = (name: string) => {
-  const n = name.toLowerCase();
-  if (n.includes('camry') || n.includes('sedan') || n.includes('taurus') || n.includes('lexus') || n.includes('mercedes')) {
-    return 'https://images.unsplash.com/photo-1549317661-bd32c8ce0db2?auto=format&fit=crop&w=800&q=80';
-  } else if (n.includes('gmc') || n.includes('suv') || n.includes('yukon') || n.includes('escalade')) {
-    return 'https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?auto=format&fit=crop&w=800&q=80';
-  } else if (n.includes('staria') || n.includes('van') || n.includes('hiace') || n.includes('h1') || n.includes('vito') || n.includes('sprinter')) {
-    return 'https://images.unsplash.com/photo-1621007947382-bb3c399b52c5?auto=format&fit=crop&w=800&q=80';
-  } else if (n.includes('bus') || n.includes('coaster') || n.includes('coster')) {
-    return 'https://images.unsplash.com/photo-1570125909232-eb263c188f7e?auto=format&fit=crop&w=800&q=80';
-  }
-  return 'https://images.unsplash.com/photo-1494976388531-d1058494cdd8?auto=format&fit=crop&w=800&q=80';
+  return getVehicleImageByName(name);
 };
 
 export const getDetailedSpecs = (vehicle: Vehicle, isAr: boolean = false) => {
@@ -273,7 +264,7 @@ export default function Vehicles() {
                         >
                           {/* Image Section */}
                           <div className="aspect-[16/10] relative overflow-hidden bg-slate-50 flex items-center justify-center p-4">
-                            <ResponsiveImage src={v.imageUrl || getVehicleImage(v.name)} alt={displayTitle} className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-500" sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw" />
+                            <ResponsiveImage src={getVehicleImageByName(v.name, v.imageUrl)} alt={displayTitle} className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-500" sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw" />
                             
                             {/* Year Badge */}
                             <div className="absolute top-3 right-3 rtl:left-3 rtl:right-auto bg-[var(--color-saudi-green)] text-white px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-widest shadow-md">

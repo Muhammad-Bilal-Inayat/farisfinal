@@ -35,6 +35,15 @@ body {
   border-radius: 20px;
 }
 
+/* Hide scrollbar for clean mobile chip scrolling */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
 /* Leaflet Custom Marker & Map Enhancements */
 .leaflet-div-icon.custom-ziyarat-pin {
   background: transparent !important;

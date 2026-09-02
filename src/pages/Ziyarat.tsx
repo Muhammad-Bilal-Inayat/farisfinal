@@ -37,7 +37,7 @@ export default function Ziyarat() {
         />
         <meta name="keywords" content="Ziyarat transport Makkah, Ziyarat transport Madinah, Makkah Ziyarat tour, Madinah Ziyarat tour, نقل زيارات مكة, نقل زيارات المدينة" />
       </Helmet>
-      <Breadcrumbs items={[{ label: t('ziyarat') || 'Ziyarat Tours' }]} />
+      <Breadcrumbs items={[{ label: isAr ? 'جولات المزارات' : (t('service_ziyarat') || 'Ziyarat Tours') }]} />
 {/* Hero Header */}
       <div className="bg-white border-b border-slate-200/80 py-10 md:py-14 text-center shadow-2xs">
         <div className="container mx-auto px-4">
@@ -45,7 +45,7 @@ export default function Ziyarat() {
             <Compass size={14} className="text-[var(--color-luxury-gold)]" /> {isAr ? ziyaratHero.badgeAr : ziyaratHero.badgeEn}
           </div>
           <h1 className="text-3xl md:text-5xl font-black mb-3 text-[var(--color-dark-charcoal)] tracking-tight">
-            {t('Ziyarat Tours')}
+            {isAr ? 'جولات المزارات والمعالم المقدسة' : (t('service_ziyarat') || 'Ziyarat Tours')}
           </h1>
           <p className="text-sm md:text-base max-w-2xl mx-auto text-[var(--color-dark-charcoal)] font-normal">
             {isAr ? ziyaratHero.descriptionAr : ziyaratHero.descriptionEn}

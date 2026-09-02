@@ -1,5 +1,7 @@
 import AdminHomeEditor from './pages/admin/AdminHomeEditor';
 import { VisualEditorProvider } from './components/VisualEditorContext';
+import { BookingTrackerProvider } from './context/BookingTrackerContext';
+import BookingStatusModal from './components/BookingStatusModal';
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
@@ -23,6 +25,7 @@ const About = React.lazy(() => import('./pages/About'));
 const Vehicles = React.lazy(() => import('./pages/Vehicles'));
 const RoutesRates = React.lazy(() => import('./pages/RoutesRates'));
 const Booking = React.lazy(() => import('./pages/Booking'));
+const TrackBooking = React.lazy(() => import('./pages/TrackBooking'));
 const AdminDashboard = React.lazy(() => import('./pages/admin/Dashboard'));
 const Login = React.lazy(() => import('./pages/Login'));
 const Register = React.lazy(() => import('./pages/Register'));
@@ -43,39 +46,47 @@ const LoadingFallback = () => (
 
 export default function App() {
   return (
-    <div className="flex flex-col min-h-screen pb-20 md:pb-0">
-      <ScrollToTop />
-      <TopProgressBar />
-      <OfflineBanner />
-      <Header />
-      <main className="flex-grow pt-16 md:pt-20 lg:pt-28">
-        <Suspense fallback={<LoadingFallback />}>
-          <Routes>
-            <Route path="/" element={<Home />} />
-            <Route path="/about-us" element={<About />} />
-            <Route path="/vehicles" element={<Vehicles />} />
-            <Route path="/routes-rates" element={<RoutesRates />} />
-            <Route path="/services" element={<Services />} />
-            <Route path="/ziyarat" element={<Ziyarat />} />
-            <Route path="/faq" element={<Faq />} />
-            <Route path="/contact" element={<Contact />} />
-            <Route path="/terms" element={<Terms />} />
-            <Route path="/privacy" element={<Privacy />} />
-            <Route path="/booking" element={<Booking />} />
-            <Route path="/admin" element={<AdminDashboard />} />
-          <Route path="/admin/home-editor" element={<AdminHomeEditor />} />
-            <Route path="/login" element={<Login />} />
-            <Route path="/register" element={<Register />} />
-            <Route path="/dashboard" element={<UserDashboard />} />
-            {/* Catch all */}
-            <Route path="*" element={<div className="container mx-auto py-20 text-center"><h2>Page coming soon</h2></div>} />
-          </Routes>
-        </Suspense>
-      </main>
-      <Footer />
-      <FloatingWhatsApp />
-      <MobileBottomBar />
-      <PromoPopup />
-    </div>
+    <BookingTrackerProvider>
+      <div className="flex flex-col min-h-screen pb-[90px] md:pb-0">
+        <ScrollToTop />
+        <TopProgressBar />
+        <OfflineBanner />
+        <Header />
+        <main className="flex-grow pt-16 md:pt-20 lg:pt-28">
+          <Suspense fallback={<LoadingFallback />}>
+            <Routes>
+              <Route path="/" element={<Home />} />
+              <Route path="/about-us" element={<About />} />
+              <Route path="/vehicles" element={<Vehicles />} />
+              <Route path="/routes-rates" element={<RoutesRates />} />
+              <Route path="/services" element={<Services />} />
+              <Route path="/ziyarat" element={<Ziyarat />} />
+              <Route path="/faq" element={<Faq />} />
+              <Route path="/contact" element={<Contact />} />
+              <Route path="/terms" element={<Terms />} />
+              <Route path="/privacy" element={<Privacy />} />
+              <Route path="/booking" element={<Booking />} />
+              <Route path="/track" element={<TrackBooking />} />
+              <Route path="/track-booking" element={<TrackBooking />} />
+              <Route path="/admin" element={<AdminDashboard />} />
+              <Route path="/admin/drivers" element={<AdminDashboard initialTab="drivers" />} />
+              <Route path="/admin/orders" element={<AdminDashboard initialTab="bookings" />} />
+              <Route path="/admin/bookings" element={<AdminDashboard initialTab="bookings" />} />
+              <Route path="/admin/home-editor" element={<AdminHomeEditor />} />
+              <Route path="/login" element={<Login />} />
+              <Route path="/register" element={<Register />} />
+              <Route path="/dashboard" element={<UserDashboard />} />
+              {/* Catch all */}
+              <Route path="*" element={<div className="container mx-auto py-20 text-center"><h2>Page coming soon</h2></div>} />
+            </Routes>
+          </Suspense>
+        </main>
+        <Footer />
+        <FloatingWhatsApp />
+        <MobileBottomBar />
+        <PromoPopup />
+        <BookingStatusModal />
+      </div>
+    </BookingTrackerProvider>
   );
 }

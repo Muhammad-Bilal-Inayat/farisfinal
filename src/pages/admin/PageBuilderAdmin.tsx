@@ -31,13 +31,13 @@ interface SectionConfig {
 }
 
 const DEFAULT_LAYOUT: SectionConfig[] = [
-  { id: 'hero', type: 'hero', enabled: true, titleEn: 'Hero Slider', titleAr: 'سلايدر' },
-  { id: 'fleet_specs', type: 'fleet_specs', enabled: true, titleEn: 'Fleet Specs (Image+Text)', titleAr: 'مواصفات الأسطول', image: 'https://images.unsplash.com/photo-1618843479313-40f8afb4b4d8?auto=format&fit=crop&w=1000&q=80' },
-  { id: 'quick_routes', type: 'quick_routes', enabled: true, titleEn: 'Quick Route Pills', titleAr: 'روابط المسارات السريعة' },
-  { id: 'routes', type: 'routes', enabled: true, titleEn: 'Fixed Routes (Image+Rates)', titleAr: 'المسارات الثابتة', image: 'https://images.unsplash.com/photo-1502877338593-d286ae718eff?auto=format&fit=crop&w=1000&q=80' },
-  { id: 'vehicles', type: 'vehicles', enabled: true, titleEn: 'Featured Vehicles Grid', titleAr: 'شبكة السيارات' },
-  { id: 'ziyarat', type: 'ziyarat', enabled: true, titleEn: 'Ziyarat Previews', titleAr: 'المزارات' },
-  { id: 'testimonials', type: 'testimonials', enabled: true, titleEn: 'Testimonials', titleAr: 'التوصيات' },
+  { id: 'hero', type: 'hero', enabled: true, titleEn: 'Hero Slider & Instant Booking Widget', titleAr: 'سلايدر الرئيسية ونموذج الحجز الفوري' },
+  { id: 'fleet_specs', type: 'fleet_specs', enabled: true, titleEn: 'Executive Fleet Specifications & Comfort', titleAr: 'مواصفات الأسطول الفاخر وراحة الضيوف', image: '/images/fleet/gmc-xl.jpg' },
+  { id: 'quick_routes', type: 'quick_routes', enabled: true, titleEn: 'Quick Route Navigation Pills', titleAr: 'أزرار المسارات السريعة للتنقل' },
+  { id: 'routes', type: 'routes', enabled: true, titleEn: 'Transparent Intercity Rates & Routes', titleAr: 'المسارات والأسعار الشفافة بين المدن', image: 'https://images.unsplash.com/photo-1502877338593-d286ae718eff?auto=format&fit=crop&w=1000&q=80' },
+  { id: 'vehicles', type: 'vehicles', enabled: true, titleEn: 'Featured VIP Fleet Grid', titleAr: 'شبكة أسطول السيارات الفاخرة' },
+  { id: 'ziyarat', type: 'ziyarat', enabled: true, titleEn: 'Makkah & Madinah Ziyarat Tours', titleAr: 'جولات مزارات مكة المكرمة والمدينة المنورة' },
+  { id: 'testimonials', type: 'testimonials', enabled: true, titleEn: 'Guest Testimonials & Reviews', titleAr: 'آراء وتقييمات المعتمرين والضيوف' },
 ];
 
 function SortableItem({ id, section, updateSection, removeSection }: any) {

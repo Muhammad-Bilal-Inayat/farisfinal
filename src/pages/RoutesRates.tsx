@@ -1,8 +1,8 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import ResponsiveImage from '../components/ResponsiveImage';
 import { useTranslation } from 'react-i18next';
 import Breadcrumbs from '../components/Breadcrumbs';
-import { Users, Briefcase, Sparkles, Check, ArrowRight, MessageSquare, Search, Filter, Phone } from 'lucide-react';
+import { Users, Briefcase, Sparkles, Check, ArrowRight, MessageSquare, Search, Filter, Phone, ChevronLeft, ChevronRight, Eye, LayoutGrid } from 'lucide-react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useWhatsApp } from '../hooks/useWhatsApp';
 import { Helmet } from 'react-helmet-async';
@@ -14,6 +14,7 @@ import {
   VehicleFleet, 
   QuickRoutePill 
 } from '../data/fleetRoutesData';
+import { getVehicleImageByName } from '../utils/imageUtils';
 
 export default function RoutesRates() {
   const { t, i18n } = useTranslation();
@@ -25,18 +26,25 @@ export default function RoutesRates() {
     return searchParams.get('pill') || searchParams.get('route') || null;
   });
 
+  const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [mobileViewMode, setMobileViewMode] = useState<'card' | 'all'>('card');
+  const [activeMobileVehicleId, setActiveMobileVehicleId] = useState<string>('gmc-xl');
+  const [selectedRouteByVehicle, setSelectedRouteByVehicle] = useState<Record<string, any>>({});
+  const mobileTabsRef = useRef<HTMLDivElement>(null);
+
+  const [dynamicVehicles, setDynamicVehicles] = useState<VehicleFleet[]>(FLEET_VEHICLES_DATA);
+
   useEffect(() => {
     const pillFromUrl = searchParams.get('pill') || searchParams.get('route');
     const vehicleFromUrl = searchParams.get('vehicle');
     if (pillFromUrl) {
       setSelectedPillId(pillFromUrl);
     }
-    // Scroll removed because selected vehicle is shown at top
+    if (vehicleFromUrl) {
+      setActiveMobileVehicleId(vehicleFromUrl);
+    }
   }, [searchParams]);
-  const [selectedCategory, setSelectedCategory] = useState<string>('all');
-  const [searchQuery, setSearchQuery] = useState<string>('');
-
-  const [dynamicVehicles, setDynamicVehicles] = useState<VehicleFleet[]>(FLEET_VEHICLES_DATA);
 
   useEffect(() => {
     Promise.all([
@@ -44,8 +52,15 @@ export default function RoutesRates() {
       fetch('/api/routes').then(r => r.json())
     ]).then(([vehicles, routes]) => {
       if (Array.isArray(vehicles) && Array.isArray(routes)) {
-        const enriched = vehicles.map((v: any) => {
-          const vRoutes = [];
+        // Sort vehicles ensuring GMC XL 2025 is first
+        const sortedVehicles = [...vehicles].sort((a: any, b: any) => {
+          if (a.name?.toLowerCase().includes('gmc')) return -1;
+          if (b.name?.toLowerCase().includes('gmc')) return 1;
+          return (a.displayOrder ?? a.display_order ?? 0) - (b.displayOrder ?? b.display_order ?? 0);
+        });
+
+        const enriched = sortedVehicles.map((v: any) => {
+          const vRoutes: any[] = [];
           routes.forEach((route: any) => {
             const rate = route.rates?.find((r: any) => r.vehicleId === v.id);
             if (rate) {
@@ -62,26 +77,42 @@ export default function RoutesRates() {
               });
             }
           });
+
+          // Format passenger and luggage specs cleanly
+          const isGmc = v.name?.toLowerCase().includes('gmc');
+          const pVal = isGmc ? '7' : (v.passengerCapacity?.toString() || '4');
+          const lVal = isGmc ? '8' : (v.luggageCapacity?.toString() || '4');
+
           return {
             id: v.id.toString(),
-            name: v.name,
-            nameAr: v.name,
-            category: (v.category || 'Sedan') as any,
-            passengers: v.passengerCapacity?.toString() || '4',
-            passengersAr: v.passengerCapacity?.toString() || '4',
-            luggage: v.luggageCapacity?.toString() || '3',
-            luggageAr: v.luggageCapacity?.toString() || '3',
-            image: v.imageUrl || 'https://images.unsplash.com/photo-1549317661-bd32c8ce0db2?auto=format&fit=crop&w=800&q=80',
-            routes: vRoutes
+            name: isGmc ? 'GMC XL 2025' : v.name,
+            nameAr: isGmc ? 'جمس يوكون إكس إل 2025' : v.name,
+            category: (v.category || (isGmc ? 'SUV' : 'Sedan')) as any,
+            passengers: `${pVal} Passengers`,
+            passengersAr: `${pVal} ركاب`,
+            luggage: `${lVal} Big Size`,
+            luggageAr: `${lVal} حقائب كبيرة`,
+            image: getVehicleImageByName(v.name, v.imageUrl),
+            routes: vRoutes.length > 0 ? vRoutes : (FLEET_VEHICLES_DATA.find(f => f.id === 'gmc-xl')?.routes || [])
           };
         });
+
+        // Ensure GMC XL 2025 is at the top of the list
+        enriched.sort((a: any, b: any) => {
+          const aGmc = a.name.toLowerCase().includes('gmc') ? -1 : 1;
+          const bGmc = b.name.toLowerCase().includes('gmc') ? -1 : 1;
+          return aGmc - bGmc;
+        });
+
         if (enriched.length > 0) {
           setDynamicVehicles(enriched);
+          if (!searchParams.get('vehicle')) {
+            setActiveMobileVehicleId(enriched[0].id);
+          }
         }
       }
     }).catch(console.error);
   }, []);
-
 
   const handlePillClick = (pill: QuickRoutePill) => {
     if (selectedPillId === pill.id) {
@@ -110,25 +141,56 @@ export default function RoutesRates() {
     }
 
     return list;
-  }, [selectedCategory, searchQuery]);
+  }, [dynamicVehicles, selectedCategory, searchQuery]);
+
+  // Current vehicle for single card mobile view
+  const currentMobileIndex = useMemo(() => {
+    const idx = filteredVehicles.findIndex(v => v.id === activeMobileVehicleId);
+    return idx >= 0 ? idx : 0;
+  }, [filteredVehicles, activeMobileVehicleId]);
+
+  const currentMobileVehicle = filteredVehicles[currentMobileIndex] || filteredVehicles[0];
+
+  const handleSelectMobileVehicle = (vId: string) => {
+    setActiveMobileVehicleId(vId);
+    // Auto scroll the tab into view
+    const tabEl = document.getElementById(`tab-btn-${vId}`);
+    if (tabEl && mobileTabsRef.current) {
+      tabEl.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+    }
+  };
+
+  const handlePrevMobileVehicle = () => {
+    if (filteredVehicles.length <= 1) return;
+    const newIdx = (currentMobileIndex - 1 + filteredVehicles.length) % filteredVehicles.length;
+    handleSelectMobileVehicle(filteredVehicles[newIdx].id);
+  };
+
+  const handleNextMobileVehicle = () => {
+    if (filteredVehicles.length <= 1) return;
+    const newIdx = (currentMobileIndex + 1) % filteredVehicles.length;
+    handleSelectMobileVehicle(filteredVehicles[newIdx].id);
+  };
 
   const handleBookVehicle = (vehicle: VehicleFleet, routeItem?: any) => {
-    const pickup = routeItem?.pickup || 'Jeddah Airport (JED)';
-    const destination = routeItem?.destination || 'Makkah Hotel / Haram';
+    const selectedR = routeItem || selectedRouteByVehicle[vehicle.id] || vehicle.routes[0];
+    const pickup = selectedR?.pickup || 'Jeddah Airport (JED)';
+    const destination = selectedR?.destination || 'Makkah Hotel / Haram';
     const params = new URLSearchParams({
       vehicle: vehicle.name,
       pickup: pickup,
       destination: destination,
     });
-    if (routeItem?.price) {
-      params.append('price', String(routeItem.price));
+    if (selectedR?.price) {
+      params.append('price', String(selectedR.price));
     }
     navigate(`/booking?${params.toString()}`);
   };
 
   const handleWhatsAppBooking = (vehicle: VehicleFleet, routeItem?: any) => {
-    const rName = routeItem ? (isAr ? routeItem.routeNameAr : routeItem.routeNameEn) : (isAr ? 'رحلة عمرة عامة' : 'General Umrah Transfer');
-    const priceText = routeItem ? `${routeItem.price} SAR` : '';
+    const selectedR = routeItem || selectedRouteByVehicle[vehicle.id] || vehicle.routes[0];
+    const rName = selectedR ? (isAr ? selectedR.routeNameAr : selectedR.routeNameEn) : (isAr ? 'رحلة عمرة عامة' : 'General Umrah Transfer');
+    const priceText = selectedR ? `${selectedR.price} SAR` : '';
     const msg = isAr 
       ? `السلام عليكم، أرغب في حجز سيارة ${vehicle.nameAr} (${vehicle.name}) لرحلة: ${rName}${priceText ? ` بسعر ${priceText}` : ''}. يرجى تأكيد التوفر.`
       : `Assalamu Alaikum, I would like to book ${vehicle.name} for route: ${rName}${priceText ? ` at ${priceText}` : ''}. Please confirm availability.`;
@@ -158,115 +220,124 @@ export default function RoutesRates() {
 
   const activeRouteId = getPillMatchingRouteId(selectedPillId);
 
-
-  const renderVehicleCard = (vehicle: VehicleFleet) => {
+  // Exact card renderer matching the uploaded reference image
+  const renderVehicleCard = (vehicle: VehicleFleet, isMobileFocused = false) => {
     const activeRouteItem = vehicle.routes.find(r => r.routeId === activeRouteId);
+    const selectedRouteForCar = selectedRouteByVehicle[vehicle.id] || activeRouteItem;
+
     return (
       <div 
         id={'vehicle-card-' + vehicle.id}
         key={vehicle.id}
-        className="bg-white rounded-2xl shadow-md border border-gray-200 overflow-hidden flex flex-col transition-all duration-300 hover:shadow-xl hover:border-emerald-300 group"
+        className="bg-white rounded-2xl shadow-xs hover:shadow-md border border-gray-200/90 overflow-hidden flex flex-col transition-all duration-200"
       >
-        <div className="pt-6 pb-3 px-6 text-center">
-          <h3 className="text-2xl sm:text-3xl font-black text-[var(--color-dark-charcoal)] tracking-tight">
+        {/* Top Header: Centered Vehicle Name */}
+        <div className="pt-4 sm:pt-5 pb-1 sm:pb-2 px-3.5 sm:px-5 text-center">
+          <h3 className="text-xl sm:text-2xl font-black text-gray-900 tracking-tight">
             {vehicle.name}
           </h3>
         </div>
-        <div className="px-6 pb-4 flex items-center justify-center gap-6 text-sm sm:text-base font-bold text-gray-800">
+
+        {/* Capacity Badges: (7 Passengers) (8 Big Size) */}
+        <div className="px-3.5 sm:px-5 pb-3 flex items-center justify-center gap-3 sm:gap-4 text-xs sm:text-sm font-semibold text-gray-700">
           <div className="flex items-center gap-1.5">
             <div className="w-5 h-5 rounded-full bg-[#1b314b] text-white flex items-center justify-center shrink-0">
-              <Users size={12} />
+              <Users size={11} />
             </div>
             <span>({isAr ? vehicle.passengersAr : vehicle.passengers})</span>
           </div>
           <div className="flex items-center gap-1.5">
-            <Briefcase size={15} className="text-gray-600" />
+            <Briefcase size={14} className="text-gray-500" />
             <span>({isAr ? vehicle.luggageAr : vehicle.luggage})</span>
           </div>
         </div>
+
+        {/* Thin Divider Line */}
         <hr className="border-gray-200 mx-4" />
-        <div className="px-6 py-4 flex items-center justify-center bg-radial from-gray-50 to-white min-h-[190px]">
+
+        {/* Centered Vehicle Photo */}
+        <div className="px-4 py-2.5 sm:py-3.5 flex items-center justify-center bg-white min-h-[140px] sm:min-h-[170px]">
           <ResponsiveImage 
             src={vehicle.image} 
             alt={vehicle.name}
             loading="lazy"
-            className="max-h-40 w-auto object-contain transition-transform duration-500 group-hover:scale-105 drop-shadow-md"
+            className="max-h-32 sm:max-h-38 w-auto object-contain drop-shadow-2xs transition-transform duration-300 hover:scale-105"
             onError={(e: any) => {
-              e.target.setAttribute('src', 'https://images.unsplash.com/photo-1549317661-bd32c8ce0db2?auto=format&fit=crop&w=800&q=80');
+              e.target.setAttribute('src', getVehicleImageByName(vehicle.name));
             }}
           />
         </div>
+
+        {/* Active Filter Notice if selected via pill */}
         {activeRouteItem && (
-          <div className="mx-4 mb-3 p-3.5 bg-emerald-50 border border-emerald-300 rounded-xl flex items-center justify-between text-sm shadow-sm">
+          <div className="mx-3.5 sm:mx-4 mb-2 p-2.5 bg-amber-50/90 border border-amber-300 rounded-xl flex items-center justify-between text-xs shadow-2xs">
             <div>
-              <span className="text-xs sm:text-sm font-extrabold text-emerald-800 uppercase block">
-                {isAr ? 'سعر المسار المحدد' : 'Selected Route Price'}
+              <span className="font-bold text-amber-900 block text-xs">
+                {isAr ? activeRouteItem.routeNameAr : activeRouteItem.routeNameEn}
               </span>
-              <span className="font-extrabold text-[var(--color-saudi-green)] text-xl">
-                {activeRouteItem.price} SR
+              <span className="text-[10px] text-amber-700 font-medium">
+                {isAr ? 'المسار المحدد عبر الفلتر' : 'Filter Selected Route'}
               </span>
             </div>
-            <button
-              onClick={() => handleBookVehicle(vehicle, activeRouteItem)}
-              className="px-4 py-2.5 bg-[var(--color-saudi-green)] text-white text-xs sm:text-sm font-bold rounded-xl hover:bg-[var(--color-saudi-emerald)] transition-colors cursor-pointer shadow-sm min-h-[44px]"
-            >
-              {isAr ? 'حجز هذا المسار' : 'Book Route'}
-            </button>
+            <span className="font-black text-amber-950 text-sm sm:text-base">
+              {activeRouteItem.price} SR
+            </span>
           </div>
         )}
-        <div className="px-5 py-4 flex-1 bg-white">
-          <ul className="space-y-4 sm:space-y-2 text-base sm:text-sm text-gray-700 leading-tight">
+
+        {/* Bulleted Routes & Rates List (Matching reference image) */}
+        <div className="px-3 sm:px-4.5 py-2 flex-1 bg-white">
+          <ul className="space-y-1 text-xs sm:text-sm leading-snug">
             {vehicle.routes.map(r => {
-              const isThisActive = activeRouteId === r.routeId;
+              const isThisActive = (activeRouteItem && activeRouteItem.routeId === r.routeId) || 
+                                   (selectedRouteForCar && selectedRouteForCar.routeId === r.routeId);
               return (
                 <li 
                   key={r.routeId}
-                  className={`flex flex-col sm:flex-row sm:items-center justify-between gap-4 sm:gap-2 p-5 sm:p-2 rounded-2xl sm:rounded-xl border-2 sm:border-0 shadow-sm sm:shadow-none transition-colors ${
+                  onClick={() => {
+                    setSelectedRouteByVehicle(prev => ({ ...prev, [vehicle.id]: r }));
+                  }}
+                  className={`flex items-baseline justify-between gap-2 py-1 px-2 rounded-lg cursor-pointer transition-colors border-b border-gray-100/70 last:border-0 hover:bg-gray-50 ${
                     isThisActive 
-                      ? 'bg-amber-50/90 border-amber-300 ring-0' 
-                      : 'bg-white border-gray-100 hover:bg-gray-50'
+                      ? 'bg-amber-50/90 text-amber-950 font-bold' 
+                      : 'text-gray-800'
                   }`}
+                  title={isAr ? "انقر لاختيار هذا المسار" : "Click to select this route"}
                 >
-                  <div className="flex items-start sm:items-center gap-3 sm:gap-2 flex-1 min-w-0">
-                    <div className="mt-1.5 sm:mt-0 w-2.5 h-2.5 sm:w-1.5 sm:h-1.5 rounded-full bg-[var(--color-saudi-green)] shrink-0 shadow-sm"></div>
-                    <span className="break-words font-black text-[19px] sm:text-sm text-gray-900 leading-snug sm:leading-normal" title={isAr ? r.routeNameAr : r.routeNameEn}>
+                  <div className="flex items-baseline gap-1.5 min-w-0 flex-1">
+                    <span className={`text-sm leading-none select-none font-bold ${isThisActive ? 'text-amber-600' : 'text-gray-400'}`}>•</span>
+                    <span className="font-medium text-gray-800 tracking-tight text-xs sm:text-sm">
                       {isAr ? r.routeNameAr : r.routeNameEn}
                     </span>
-                  </div>
-                  <div className="flex items-center justify-between sm:justify-end gap-3 w-full sm:w-auto mt-2 sm:mt-0 pt-4 sm:pt-0 border-t-2 border-dashed sm:border-solid sm:border-t-0 border-gray-200/80 sm:border-transparent">
-                    <div className="flex flex-col sm:flex-row sm:items-baseline sm:gap-1">
-                      <span className="text-[11px] text-gray-400 font-extrabold uppercase tracking-widest sm:hidden mb-0.5">
-                        {isAr ? 'السعر' : 'Fare'}
+                    {isThisActive && (
+                      <span className="text-[9px] font-bold bg-amber-200 text-amber-900 px-1 py-0.2 rounded ml-1 shrink-0">
+                        {isAr ? 'محدد' : 'Selected'}
                       </span>
-                      <span className={`shrink-0 font-black text-[28px] sm:text-base leading-none ${isThisActive ? 'text-amber-950' : 'text-[var(--color-saudi-green)]'}`}>
-                        {r.price} <span className="text-sm sm:text-xs font-bold text-gray-500">SR</span>
-                      </span>
-                    </div>
-                    <button
-                      onClick={() => handleBookVehicle(vehicle, r)}
-                      className="px-8 sm:px-4 py-3.5 sm:py-1.5 bg-[var(--color-saudi-green)] text-white text-lg sm:text-sm font-black rounded-xl hover:bg-[var(--color-saudi-emerald)] transition-colors cursor-pointer shadow-lg sm:shadow-md"
-                    >
-                      {isAr ? 'احجز' : 'Book'}
-                    </button>
+                    )}
                   </div>
+                  <span className={`shrink-0 font-bold whitespace-nowrap text-xs sm:text-sm ${isThisActive ? 'text-amber-950 font-black' : 'text-gray-900'}`}>
+                    {r.price} <span className="text-[10px] sm:text-xs font-semibold text-gray-500">SR</span>
+                  </span>
                 </li>
               );
             })}
           </ul>
         </div>
-        <div className="p-5 pt-3 bg-gray-50/60 border-t border-gray-100 flex flex-col gap-2">
+
+        {/* Bottom Actions: Solid Black Book Now Button + WhatsApp Button */}
+        <div className="p-3.5 sm:p-4 pt-2.5 bg-white border-t border-gray-100 flex flex-col gap-2">
           <button
-            onClick={() => handleBookVehicle(vehicle, activeRouteItem)}
-            className="w-full bg-black hover:bg-gray-900 active:scale-[0.99] text-white py-3.5 px-4 rounded-xl font-bold text-base min-h-[48px] tracking-wide transition-all duration-200 shadow-md hover:shadow-lg flex items-center justify-center gap-2 cursor-pointer"
+            onClick={() => handleBookVehicle(vehicle, selectedRouteForCar)}
+            className="w-full bg-[#111111] hover:bg-black active:scale-[0.99] text-white py-2.5 sm:py-3 px-4 rounded-xl font-bold text-xs sm:text-sm min-h-[42px] sm:min-h-[46px] tracking-wide transition-all duration-200 shadow-xs flex items-center justify-center gap-2 cursor-pointer"
           >
             <span>{isAr ? 'احجز الآن!' : 'Book Now!'}</span>
             <ArrowRight size={15} className="rtl:rotate-180 text-[var(--color-luxury-gold)]" />
           </button>
           <button
-            onClick={() => handleWhatsAppBooking(vehicle, activeRouteItem)}
-            className="w-full bg-emerald-50 hover:bg-emerald-100 text-[var(--color-saudi-green)] border border-emerald-200 py-3 px-4 rounded-xl font-bold text-sm min-h-[44px] transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+            onClick={() => handleWhatsAppBooking(vehicle, selectedRouteForCar)}
+            className="w-full bg-emerald-50 hover:bg-emerald-100 text-[var(--color-saudi-green)] border border-emerald-200 py-2 px-3.5 rounded-xl font-bold text-xs sm:text-sm min-h-[38px] sm:min-h-[42px] transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
           >
-            <MessageSquare size={13} />
+            <MessageSquare size={14} />
             <span>{isAr ? 'استفسار عبر واتساب' : 'Inquire on WhatsApp'}</span>
           </button>
         </div>
@@ -274,110 +345,158 @@ export default function RoutesRates() {
     );
   };
 
-
   const mainVehicleId = searchParams.get('vehicle');
   const mainVehicle = mainVehicleId ? filteredVehicles.find(v => v.id === mainVehicleId) : null;
   const otherVehicles = mainVehicleId ? filteredVehicles.filter(v => v.id !== mainVehicleId) : filteredVehicles;
 
   return (
-    <div className="bg-[#F1F4F8] min-h-screen pb-24 text-[var(--color-dark-charcoal)]">
-      <PageCustomRenderer pageKey="routes_rates" position="top" />
+    <div className="min-h-screen bg-[#F5F7FA] text-gray-800">
       <Helmet>
-        <title>{isAr ? 'احجز أسطولك | أسعار ومسارات رحلات العمرة VIP' : 'Book Your Fleet | Umrah Transfer Routes & Rates'}</title>
+        <title>{isAr ? 'أسعار ومسارات التوصيل | تاكسي مكة والمدينة وجدة' : 'Routes & Fixed Fares | Makkah & Madinah Luxury Fleet'}</title>
         <meta 
           name="description" 
-          content="Explore all Umrah transport vehicle rates: Toyota Camry, GMC XL 2025, Hyundai Staria, Ford Taurus, Toyota Hiace, Lexus ES300h, Toyota Coaster, and Luxury Bus. 17 fixed transparent routes." 
+          content={isAr 
+            ? 'اطلع على قائمة الأسعار الشاملة والمسارات المعتمدة لتنقلات العمرة والمطارات مع جمس 2025 وسياراتنا الفاخرة.'
+            : 'Explore full fleet fixed rates & routes for Umrah VIP transfers including GMC XL 2025, Toyota Camry, Staria and private buses.'
+          } 
         />
-        <meta name="keywords" content="Book your fleet, Umrah routes and rates, Makkah to Madinah taxi, Jeddah airport transfer, GMC XL Umrah, Toyota Camry Makkah, Hiace VIP, Faris transport rates" />
       </Helmet>
-      <Breadcrumbs items={[{ label: t('routes_rates') || 'Routes & Rates' }]} />
-{/* TOP HERO & HEADER */}
-      <section className="bg-white border-b border-slate-200/80 pt-10 pb-8 sm:pt-14 sm:pb-10 shadow-2xs">
-        <div className="container mx-auto px-4 text-center max-w-5xl">
-          <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full text-xs font-bold bg-emerald-50 text-[var(--color-saudi-green)] border border-emerald-200/60 mb-4 shadow-2xs">
-            <Sparkles size={13} className="text-[var(--color-luxury-gold)]" />
-            <span>{isAr ? 'أسعار رسمية ثابتة ومضمونة 100%' : 'Official Guaranteed Fixed Rates & VIP Service'}</span>
-          </div>
 
-          <h1 className="text-3xl sm:text-4xl md:text-5xl font-black text-[#0c2e22] tracking-tight mb-3">
-            {isAr ? 'احجز أسطولك المفضل' : 'Book Your Fleet'}
+      {/* Hero Header */}
+      <section className="bg-radial from-[var(--color-saudi-green)] to-[#003824] text-white pt-8 pb-7 sm:pb-9 shadow-md">
+        <div className="container mx-auto px-4 max-w-6xl">
+          <Breadcrumbs 
+            items={[
+              { label: isAr ? 'الرئيسية' : 'Home', path: '/' },
+              { label: isAr ? 'الأسعار والمسارات' : 'Routes & Rates' }
+            ]} 
+          />
+          <h1 className="text-2xl sm:text-4xl md:text-5xl font-black text-center tracking-tight mt-2 text-white">
+            {isAr ? 'قائمة الأسعار والمسارات المعتمدة' : 'Fleet Routes & Fixed Fares'}
           </h1>
-          
-          <p className="text-sm sm:text-base text-gray-600 max-w-2xl mx-auto leading-relaxed">
+          <p className="text-xs sm:text-base text-emerald-100 text-center max-w-2xl mx-auto mt-2 font-normal leading-relaxed">
             {isAr 
-              ? 'اختر وسيلة النقل المناسبة لرحلتك من أسطولنا المتكامل لعام 2025/2026 مع جدول الأسعار الشفاف لكافة مسارات العمرة والمطارات والمزارات.'
-              : 'Select your preferred vehicle from our executive 2025/2026 fleet. Complete transparent pricing for all airport transfers, intercity routes, and sacred Ziyarat tours.'}
+              ? 'أسعار شفافة وثابتة بالريال السعودي تشمل الوقود والضريبة وخدمة الاستقبال والتوصيل من الباب إلى الباب.'
+              : 'Transparent, all-inclusive pricing in SAR covering fuel, airport pickup, and dedicated chauffeur service.'
+            }
           </p>
         </div>
       </section>
 
-      {/* QUICK ROUTE PILLS SECTION (Matches Reference Image 1) */}
-      <section className="py-8 bg-[#E9EEF4] border-b border-slate-200/80 shadow-inner">
-        <div className="container mx-auto px-4 max-w-6xl">
-          <div className="flex items-center justify-between gap-4 mb-5 flex-wrap">
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-bold uppercase tracking-wider text-emerald-950 bg-emerald-100/70 px-2.5 py-1 rounded-md">
-                {isAr ? 'تصفية سريعة حسب المسار:' : 'Quick Route Filter:'}
+
+
+      {/* MOBILE VEHICLE TABS & CONTROLS (Active only on mobile screens) */}
+      <section className="sm:hidden pt-3 pb-2 bg-white border-b border-gray-200/90 sticky top-0 z-20 shadow-2xs">
+        <div className="container mx-auto px-3 max-w-xl">
+          {/* Header with Car counter & View Mode toggle */}
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-1.5">
+              <span className="text-[11px] font-bold text-gray-500 uppercase">
+                {isAr ? 'السيارة:' : 'Vehicle:'}
               </span>
-              {selectedPillId && (
-                <button
-                  onClick={() => setSelectedPillId(null)}
-                  className="text-xs font-bold text-red-600 hover:text-red-700 underline cursor-pointer"
-                >
-                  {isAr ? 'إلغاء التحديد (عرض الكل)' : 'Clear Filter (Show All)'}
-                </button>
-              )}
+              <span className="text-xs font-black text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                {currentMobileIndex + 1} / {filteredVehicles.length}
+              </span>
             </div>
-            <span className="text-xs text-gray-600 font-medium hidden sm:inline">
-              {isAr ? 'انقر على أي مسار لتظليله في بطاقات السيارات بالأسفل' : 'Click any route to highlight prices across all fleet cards below'}
-            </span>
+
+            {/* View Mode Toggle: Single Card vs All Cards */}
+            <div className="flex items-center bg-gray-100 p-0.5 rounded-lg text-xs font-bold">
+              <button
+                onClick={() => setMobileViewMode('card')}
+                className={`px-2 py-1 rounded-md transition-colors flex items-center gap-1 cursor-pointer text-[11px] ${
+                  mobileViewMode === 'card' 
+                    ? 'bg-white text-gray-900 shadow-2xs font-extrabold' 
+                    : 'text-gray-500 hover:text-gray-900'
+                }`}
+              >
+                <Eye size={12} />
+                <span>{isAr ? 'بطاقة مفردة' : 'Card View'}</span>
+              </button>
+              <button
+                onClick={() => setMobileViewMode('all')}
+                className={`px-2 py-1 rounded-md transition-colors flex items-center gap-1 cursor-pointer text-[11px] ${
+                  mobileViewMode === 'all' 
+                    ? 'bg-white text-gray-900 shadow-2xs font-extrabold' 
+                    : 'text-gray-500 hover:text-gray-900'
+                }`}
+              >
+                <LayoutGrid size={12} />
+                <span>{isAr ? 'عرض الكل' : 'View All'}</span>
+              </button>
+            </div>
           </div>
 
-          {/* 12 Green Rounded Pill Buttons Grid */}
-          <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
-            {QUICK_ROUTE_PILLS.map(pill => {
-              const isActive = selectedPillId === pill.id;
+          {/* Horizontal Scrolling Vehicle Selection Bar */}
+          <div 
+            ref={mobileTabsRef}
+            className="flex items-center gap-1.5 overflow-x-auto pb-1.5 scrollbar-none"
+          >
+            {filteredVehicles.map(v => {
+              const isSelected = v.id === activeMobileVehicleId;
               return (
                 <button
-                  key={pill.id}
-                  onClick={() => handlePillClick(pill)}
-                  className={`group relative overflow-hidden rounded-full py-4 px-5 sm:px-6 text-sm sm:text-base font-bold text-center transition-all duration-200 shadow-md cursor-pointer flex items-center justify-center text-balance ${
-                    isActive
-                      ? 'bg-[var(--color-luxury-gold)] text-[var(--color-dark-charcoal)] ring-4 ring-emerald-600/30 scale-[1.02] shadow-lg font-extrabold'
-                      : 'bg-[#006644] hover:bg-[#005237] active:scale-[0.98] text-white hover:shadow-lg'
+                  key={v.id}
+                  id={`tab-btn-${v.id}`}
+                  onClick={() => handleSelectMobileVehicle(v.id)}
+                  className={`shrink-0 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
+                    isSelected 
+                      ? 'bg-[#111111] text-white shadow-xs ring-2 ring-emerald-500/30 font-black' 
+                      : 'bg-gray-100/90 text-gray-700 hover:bg-gray-200 border border-gray-200/60'
                   }`}
                 >
-                  <span className="relative z-10 leading-tight">
-                    {isAr ? pill.nameAr : pill.nameEn}
-                  </span>
+                  <span>{v.name}</span>
                 </button>
               );
             })}
           </div>
+
+          {/* Prev / Next Navigation Arrows for Fast Car Flipping */}
+          {mobileViewMode === 'card' && filteredVehicles.length > 1 && (
+            <div className="flex items-center justify-between pt-3 mt-2 border-t border-slate-200 gap-2">
+              <button
+                onClick={handlePrevMobileVehicle}
+                className="text-xs sm:text-sm font-black text-white flex items-center gap-1.5 py-3 px-4 bg-[#05513F] hover:bg-emerald-800 rounded-xl shadow-md cursor-pointer active:scale-95 transition-all"
+              >
+                <ChevronLeft size={18} className="rtl:rotate-180 text-amber-300 shrink-0" />
+                <span>{isAr ? 'السيارة السابقة' : 'Prev Car'}</span>
+              </button>
+
+              <span className="text-xs sm:text-sm font-black text-emerald-950 bg-emerald-100 px-3 py-2 rounded-xl border border-emerald-300 truncate max-w-[150px] text-center shadow-2xs">
+                {currentMobileVehicle?.name}
+              </span>
+
+              <button
+                onClick={handleNextMobileVehicle}
+                className="text-xs sm:text-sm font-black text-white flex items-center gap-1.5 py-3 px-4 bg-[#05513F] hover:bg-emerald-800 rounded-xl shadow-md cursor-pointer active:scale-95 transition-all"
+              >
+                <span>{isAr ? 'السيارة التالية' : 'Next Car'}</span>
+                <ChevronRight size={18} className="rtl:rotate-180 text-amber-300 shrink-0" />
+              </button>
+            </div>
+          )}
         </div>
       </section>
 
-      {/* SEARCH & CATEGORY FILTER BAR */}
-      <section className="py-6">
+      {/* DESKTOP & TABLET SEARCH & CATEGORY FILTER BAR */}
+      <section className="hidden sm:block py-4 md:py-6">
         <div className="container mx-auto px-4 max-w-7xl">
-          <div className="bg-white rounded-2xl p-4 sm:p-5 shadow-xs border border-slate-200/90 flex flex-col md:flex-row items-center justify-between gap-4">
-            
+          <div className="bg-white rounded-2xl p-3 sm:p-4 shadow-2xs border border-slate-200/90 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
             {/* Categories */}
-            <div className="flex items-center gap-2 overflow-x-auto w-full md:w-auto pb-1 md:pb-0">
+            <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto pb-1 md:pb-0 scrollbar-none">
               {[
                 { id: 'all', label: isAr ? 'جميع السيارات (9)' : 'All Fleet (9)' },
-                { id: 'sedan', label: isAr ? 'سيدان فاخر' : 'Sedan' },
-                { id: 'suv', label: isAr ? 'سيارات عائلية (SUV)' : 'Luxury SUV' },
-                { id: 'van', label: isAr ? 'فانات واسعة' : 'Vans' },
+                { id: 'suv', label: isAr ? 'جمس و SUV فاخر' : 'Luxury SUV (GMC)' },
+                { id: 'sedan', label: isAr ? 'سيدان فاخر' : 'Executive Sedan' },
+                { id: 'van', label: isAr ? 'فانات عائلية' : 'Family Vans' },
                 { id: 'bus', label: isAr ? 'حافلات المجموعات' : 'Coasters & Buses' },
               ].map(c => (
                 <button
                   key={c.id}
                   onClick={() => setSelectedCategory(c.id)}
-                  className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all whitespace-nowrap cursor-pointer ${
+                  className={`px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl text-xs sm:text-sm font-bold transition-all whitespace-nowrap cursor-pointer ${
                     selectedCategory === c.id
-                      ? 'bg-[var(--color-saudi-green)] text-white shadow-sm'
-                      : 'bg-gray-100/80 text-gray-700 hover:bg-gray-200/80'
+                      ? 'bg-[var(--color-saudi-green)] text-white shadow-xs'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                   }`}
                 >
                   {c.label}
@@ -386,18 +505,18 @@ export default function RoutesRates() {
             </div>
 
             {/* Search Input */}
-            <div className="relative w-full md:w-72">
+            <div className="relative w-full md:w-64 lg:w-72 shrink-0">
               <input
                 type="text"
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
                 placeholder={isAr ? "ابحث عن سيارة أو مسار..." : "Search car or route..."}
-                className="w-full bg-gray-50 border border-gray-300 rounded-xl px-4 py-2 text-xs sm:text-sm font-medium outline-none focus:border-[var(--color-saudi-green)] focus:ring-1 focus:ring-[var(--color-saudi-green)]"
+                className="w-full bg-gray-50 border border-gray-300 rounded-xl px-3.5 py-1.5 sm:py-2 text-xs sm:text-sm font-medium outline-none focus:border-[var(--color-saudi-green)] focus:ring-1 focus:ring-[var(--color-saudi-green)]"
               />
               {searchQuery && (
                 <button
                   onClick={() => setSearchQuery('')}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 font-bold"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 font-bold cursor-pointer"
                 >
                   ×
                 </button>
@@ -407,71 +526,69 @@ export default function RoutesRates() {
         </div>
       </section>
 
-      {/* FLEET CARDS GRID (Matches Reference Image 2) */}
-      <section className="pt-2 pb-12">
-        <div className="container mx-auto px-4 max-w-7xl">
+      {/* FLEET DISPLAY SECTION */}
+      <section className="pt-3 sm:pt-4 pb-14">
+        <div className="container mx-auto px-3 sm:px-4 max-w-7xl">
           
-          {/* Active filter highlight notice */}
-          {selectedPillId && (
-            <div className="bg-emerald-900 text-white rounded-2xl p-4 mb-8 shadow-md flex flex-col sm:flex-row items-center justify-between gap-3">
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-full bg-[var(--color-luxury-gold)] text-gray-900 font-black flex items-center justify-center text-sm shrink-0">
-                  ✓
+          {/* MOBILE VIEW RENDERING */}
+          <div className="sm:hidden max-w-sm mx-auto">
+            {mobileViewMode === 'card' ? (
+              // Focused Single Card View (Matching uploaded reference image)
+              currentMobileVehicle ? (
+                <div className="transition-all duration-300">
+                  {renderVehicleCard(currentMobileVehicle, true)}
                 </div>
-                <div>
-                  <h4 className="font-bold text-sm sm:text-base">
-                    {isAr ? 'المسار المحدد حالياً:' : 'Active Route Selected:'}{' '}
-                    <span className="text-[var(--color-luxury-gold)]">
-                      {QUICK_ROUTE_PILLS.find(p => p.id === selectedPillId)?.nameEn}
-                    </span>
-                  </h4>
-                  <p className="text-xs text-emerald-200">
-                    {isAr ? 'الأسعار الخاصة بهذا المسار موضحة ومميزة في كل بطاقة أدناه.' : 'Specific prices for this trip are highlighted in gold across all vehicles.'}
-                  </p>
+              ) : (
+                <div className="bg-white p-8 rounded-2xl text-center text-gray-500 font-bold">
+                  {isAr ? 'لا توجد سيارات مطابقة' : 'No vehicles found'}
                 </div>
+              )
+            ) : (
+              // All Cards Stacked View on Mobile
+              <div className="space-y-4 sm:space-y-6">
+                {filteredVehicles.map(vehicle => renderVehicleCard(vehicle, false))}
               </div>
+            )}
+          </div>
 
-              <button
-                onClick={() => setSelectedPillId(null)}
-                className="px-3.5 py-1.5 bg-white/15 hover:bg-white/25 rounded-lg text-xs font-bold text-white transition-colors cursor-pointer"
-              >
-                {isAr ? 'إلغاء التصفية' : 'Clear Route Selection'}
-              </button>
-            </div>
-          )}
-
-          
-          {mainVehicle && (
-            <div className="mb-16">
-              <div className="flex items-center gap-2 mb-6 justify-center">
-                <Sparkles className="text-[var(--color-saudi-green)]" size={24} />
-                <h2 className="text-3xl sm:text-4xl font-black text-[var(--color-dark-charcoal)] text-center tracking-tight">
-                  {isAr ? 'السيارة المختارة' : 'Selected Vehicle'}
-                </h2>
-                <Sparkles className="text-[var(--color-saudi-green)]" size={24} />
-              </div>
-              <div className="max-w-2xl mx-auto ring-4 ring-[var(--color-saudi-green)]/20 rounded-2xl shadow-2xl scale-[1.02] transform transition-all">
-                {renderVehicleCard(mainVehicle)}
-              </div>
-            </div>
-          )}
-
-          {otherVehicles.length > 0 && (
-            <div>
-              {mainVehicle && (
-                <div className="mb-8 text-center border-t border-gray-200 pt-12">
-                  <h2 className="text-xl sm:text-2xl font-bold text-gray-800">
-                    {isAr ? 'سيارات أخرى في أسطولنا' : 'Other Vehicles in our Fleet'}
+          {/* DESKTOP & TABLET VIEW RENDERING (Clean Grid Layout) */}
+          <div className="hidden sm:block">
+            {mainVehicle && (
+              <div className="mb-8 md:mb-12">
+                <div className="flex items-center gap-2 mb-4 sm:mb-6 justify-center">
+                  <Sparkles className="text-[var(--color-saudi-green)]" size={22} />
+                  <h2 className="text-xl sm:text-2xl md:text-3xl font-black text-gray-900 text-center tracking-tight">
+                    {isAr ? 'السيارة المختارة' : 'Selected Vehicle'}
                   </h2>
-                  <p className="text-gray-500 text-sm mt-2">{isAr ? 'تصفح خيارات إضافية تناسب احتياجاتك' : 'Browse more options for your journey'}</p>
+                  <Sparkles className="text-[var(--color-saudi-green)]" size={22} />
                 </div>
-              )}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8">
-                {otherVehicles.map(vehicle => renderVehicleCard(vehicle))}
+                <div className="max-w-xl mx-auto ring-4 ring-emerald-500/20 rounded-2xl shadow-xl">
+                  {renderVehicleCard(mainVehicle)}
+                </div>
               </div>
-            </div>
-          )}
-{/* Ad Banner for monetization */}
+            )}
+
+            {otherVehicles.length > 0 ? (
+              <div>
+                {mainVehicle && (
+                  <div className="mb-6 md:mb-8 text-center border-t border-gray-200 pt-6 md:pt-10">
+                    <h2 className="text-lg sm:text-xl md:text-2xl font-bold text-gray-800">
+                      {isAr ? 'باقي سيارات الأسطول' : 'Other Fleet Vehicles'}
+                    </h2>
+                  </div>
+                )}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-5 lg:gap-6">
+                  {otherVehicles.map(vehicle => renderVehicleCard(vehicle))}
+                </div>
+              </div>
+            ) : (
+              <div className="bg-white p-10 sm:p-12 rounded-2xl text-center text-gray-500 font-bold border border-gray-200">
+                {isAr ? 'لا توجد سيارات مطابقة للبحث' : 'No vehicles found matching your criteria'}
+              </div>
+            )}
+          </div>
+
+          {/* Ad Banner */}
           <div className="mt-12">
             <AdBanner dataAdSlot="routes-rates-bottom" />
           </div>

@@ -2,7 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { 
   Search, CheckCircle, Clock, Check, X, Edit, MessageCircle, 
   Plus, Trash2, Phone, Eye, Download, Printer, Filter, 
-  MapPin, User, Calendar as CalendarIcon, Banknote, AlertCircle, Sparkles
+  MapPin, User, Calendar as CalendarIcon, Banknote, AlertCircle, Sparkles,
+  UserCheck, Send
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
@@ -12,6 +13,7 @@ export default function BookingsAdmin() {
 
   const [bookings, setBookings] = useState<any[]>([]);
   const [vehicles, setVehicles] = useState<any[]>([]);
+  const [drivers, setDrivers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -22,17 +24,20 @@ export default function BookingsAdmin() {
   const [isCreating, setIsCreating] = useState(false);
   const [editForm, setEditForm] = useState<any>({});
   const [actionSuccess, setActionSuccess] = useState<string | null>(null);
+  const [assigningDriverId, setAssigningDriverId] = useState<string>('');
 
   const fetchBookingsAndVehicles = async () => {
     const token = localStorage.getItem('adminToken');
     if (!token) return;
     try {
-      const [bRes, vRes] = await Promise.all([
+      const [bRes, vRes, dRes] = await Promise.all([
         fetch('/api/admin/bookings', { headers: { 'Authorization': `Bearer ${token}` } }),
-        fetch('/api/admin/vehicles', { headers: { 'Authorization': `Bearer ${token}` } })
+        fetch('/api/admin/vehicles', { headers: { 'Authorization': `Bearer ${token}` } }),
+        fetch('/api/admin/drivers', { headers: { 'Authorization': `Bearer ${token}` } })
       ]);
       if (bRes.ok) { const d = await bRes.json(); setBookings(Array.isArray(d) ? d : []); }
       if (vRes.ok) { const d = await vRes.json(); setVehicles(Array.isArray(d) ? d : []); }
+      if (dRes.ok) { const d = await dRes.json(); setDrivers(Array.isArray(d) ? d : []); }
     } catch (e) {
       console.error(e);
     } finally {
@@ -134,25 +139,118 @@ export default function BookingsAdmin() {
     }
   };
 
-  const handleWhatsApp = async (booking: any) => {
-    try {
-      const res = await fetch('/api/whatsapp');
-      const settings = await res.json();
-      const phone = booking.customerPhone || booking.phone || booking.whatsapp || '';
-      if (!phone) {
-        alert(isAr ? 'لا يوجد رقم هاتف مسجل لهذا العميل' : 'No phone number for this booking');
-        return;
+  const getCleanPhone = (phoneStr: string) => {
+    if (!phoneStr) return '';
+    let cleaned = String(phoneStr).replace(/[^0-9]/g, '');
+    if (cleaned.startsWith('05') && cleaned.length === 10) {
+      cleaned = '966' + cleaned.slice(1);
+    }
+    return cleaned;
+  };
+
+  // Priority: 1. booking.whatsapp -> 2. booking.phone / booking.customerPhone
+  const getCustomerPhone = (b: any) => {
+    const raw = b.whatsapp || b.phone || b.customerPhone || '';
+    return { raw, clean: getCleanPhone(raw) };
+  };
+
+  const getDriverPhone = (b: any) => {
+    const raw = b.driverPhoneSnapshot || b.driverPhone || '';
+    return { raw, clean: getCleanPhone(raw) };
+  };
+
+  const handleWhatsAppCustomer = (booking: any) => {
+    const { clean } = getCustomerPhone(booking);
+    if (!clean) {
+      // Only show a manual phone number field if BOTH stored WhatsApp and phone numbers are empty.
+      const manual = prompt(
+        isAr 
+          ? 'رقم الواتساب والهاتف غير مسجلين في هذا الحجز. أدخل رقم هاتف العميل:' 
+          : 'No WhatsApp or phone stored with this booking. Enter customer phone number:'
+      );
+      if (manual) {
+        const cleanManual = getCleanPhone(manual);
+        if (cleanManual) {
+          window.open(`https://wa.me/${cleanManual}`, '_blank');
+        }
       }
-      
-      const headerText = settings.confirmationMessage || "Salam Alaykum! Your VIP transportation booking with Umrah VIP Transport is received.";
-      const message = `${headerText}\n\n*Booking Reference:* ${booking.bookingId || `ID #${booking.id}`}\n*Lead Guest:* ${booking.customerName || 'Valued Guest'}\n*Route:* ${booking.pickup} ➔ ${booking.destination}\n*Vehicle:* ${booking.vehicleNameSnapshot || 'VIP Chauffeur'}\n*Date & Time:* ${booking.date || 'TBD'} ${booking.time ? `at ${booking.time}` : ''}\n*Passengers / Luggage:* ${booking.passengers || 1} Pax, ${booking.luggage || 0} Bags\n*Estimated Total Fare:* ${booking.price || 0} SAR\n*Status:* ${booking.status || 'Confirmed'}\n\nOur licensed chauffeur will greet you on time. Please let us know if you need any adjustments.`;
-      
-      const cleanPhone = phone.replace(/[^0-9]/g, '');
-      window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`, '_blank');
+      return;
+    }
+
+    const driverName = booking.driverNameSnapshot || booking.driverName;
+    const driverPhone = booking.driverPhoneSnapshot || booking.driverPhone;
+
+    const message = isAr
+      ? `السلام عليكم ورحمة الله وبركاته ${booking.customerName || ''}\nتحية طيبة من شركة فارس لنقل المعتمرين (Faris VIP Umrah Transport).\n\n📌 *بيانات الحجز:* #${booking.bookingId || `ID #${booking.id}`}\n📍 *المسار:* ${booking.pickup} ➔ ${booking.destination}\n📅 *الموعد:* ${booking.date || 'حسب التنسيق'} ${booking.time ? `في تمام ${booking.time}` : ''}\n🚗 *المركبة:* ${booking.vehicleNameSnapshot || 'VIP Vehicle'}\n💵 *السعر الإجمالي:* ${booking.price || 0} ر.س\nالحالة: *${booking.status || 'Confirmed'}*${driverName ? `\n\n👤 *السائق المعين:* ${driverName}\n📱 *هاتف السائق:* ${driverPhone || 'سيتواصل معكم'}` : ''}\n\nنسعد بخدمتكم ونتمنى لكم عمرة مقبولة ورحلة مباركة.`
+      : `Assalamu Alaykum ${booking.customerName || 'Valued Guest'},\nGreetings from Faris VIP Umrah Transport.\n\n📌 *Booking Reference:* #${booking.bookingId || `ID #${booking.id}`}\n📍 *Route:* ${booking.pickup} ➔ ${booking.destination}\n📅 *Schedule:* ${booking.date || 'TBD'} ${booking.time ? `at ${booking.time}` : ''}\n🚗 *Vehicle:* ${booking.vehicleNameSnapshot || 'VIP Vehicle'}\n💵 *Fare:* ${booking.price || 0} SAR\nStatus: *${booking.status || 'Confirmed'}*${driverName ? `\n\n👤 *Assigned Chauffeur:* ${driverName}\n📱 *Chauffeur Phone:* ${driverPhone || 'Will contact you'}` : ''}\n\nWe look forward to serving you with honor and excellence.`;
+
+    window.open(`https://wa.me/${clean}?text=${encodeURIComponent(message)}`, '_blank');
+  };
+
+  const handleWhatsAppDriver = (booking: any) => {
+    const { clean } = getDriverPhone(booking);
+    const driverName = booking.driverNameSnapshot || booking.driverName || 'Captain';
+    if (!clean) {
+      alert(isAr ? 'لا يوجد رقم هاتف مسجل للسائق المعين' : 'No phone number for assigned driver');
+      return;
+    }
+
+    const custPhone = booking.whatsapp || booking.phone || booking.customerPhone || 'N/A';
+    const message = isAr
+      ? `السلام عليكم كابتن ${driverName}، لديك مهمة نقل معتمرين من شركة فارس:\n\n📌 *رقم الحجز:* #${booking.bookingId || booking.id}\n👤 *اسم الضيف:* ${booking.customerName || 'Guest'}\n📱 *هاتف الضيف:* ${custPhone}\n📍 *الانطلاق:* ${booking.pickup}\n🏁 *الوصول:* ${booking.destination}\n📅 *التاريخ:* ${booking.date}\n⏰ *الوقت:* ${booking.time || 'في الموعد المتفق عليه'}\n👥 *الركاب:* ${booking.passengers || 1} ركاب - حقائب: ${booking.luggage || 0}\n💵 *السعر:* ${booking.price} ر.س\n\nيرجى التواصل مع الضيف والتواجد في الموقع قبل الموعد بنصف ساعة.`
+      : `Salam Captain ${driverName}, new VIP dispatch mission from Faris Umrah Transport:\n\n📌 *Booking Ref:* #${booking.bookingId || booking.id}\n👤 *Guest:* ${booking.customerName || 'Guest'}\n📱 *Guest Contact:* ${custPhone}\n📍 *Pickup:* ${booking.pickup}\n🏁 *Dropoff:* ${booking.destination}\n📅 *Date:* ${booking.date}\n⏰ *Time:* ${booking.time || 'As scheduled'}\n👥 *Pax:* ${booking.passengers || 1} | Luggage: ${booking.luggage || 0}\n💵 *Fare:* ${booking.price} SAR\n\nPlease contact the guest and arrive 30 mins early.`;
+
+    window.open(`https://wa.me/${clean}?text=${encodeURIComponent(message)}`, '_blank');
+  };
+
+  const handleAssignDriver = async (bookingId: number, driverIdStr: string) => {
+    if (!driverIdStr) return;
+    const token = localStorage.getItem('adminToken');
+    if (!token) return;
+
+    const targetDriver = drivers.find(d => String(d.id) === String(driverIdStr));
+    if (!targetDriver) return;
+
+    try {
+      const res = await fetch(`/api/admin/bookings/${bookingId}/assign-driver`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          driverId: targetDriver.id,
+          driverName: targetDriver.name,
+          driverPhone: targetDriver.phone,
+          driverPlate: targetDriver.vehicleInfo || '',
+          status: 'Chauffeur Assigned'
+        })
+      });
+
+      if (res.ok) {
+        triggerToast(isAr ? `تم تعيين السائق ${targetDriver.name} بنجاح` : `Driver ${targetDriver.name} assigned successfully`);
+        await fetchBookingsAndVehicles();
+        if (selectedBooking && selectedBooking.id === bookingId) {
+          setSelectedBooking((prev: any) => ({
+            ...prev,
+            driverId: targetDriver.id,
+            driverNameSnapshot: targetDriver.name,
+            driverPhoneSnapshot: targetDriver.phone,
+            driverName: targetDriver.name,
+            driverPhone: targetDriver.phone,
+            driverPlate: targetDriver.vehicleInfo || '',
+            status: 'Chauffeur Assigned'
+          }));
+        }
+      } else {
+        alert("Failed to assign driver");
+      }
     } catch (e) {
-      alert("Failed to generate WhatsApp dispatch link");
+      alert("Error assigning driver");
     }
   };
+
+  const activeDrivers = drivers;
 
   const handleExportCSV = () => {
     if (bookings.length === 0) return;
@@ -323,6 +421,7 @@ export default function BookingsAdmin() {
                 <th className="p-4">{isAr ? 'الضيف ومعلومات الاتصال' : 'Guest & Contact'}</th>
                 <th className="p-4">{isAr ? 'المسار والجدول' : 'Route & Schedule'}</th>
                 <th className="p-4">{isAr ? 'السيارة والسعر' : 'Vehicle & Fare'}</th>
+                <th className="p-4">{isAr ? 'السائق المعين' : 'Assigned Driver'}</th>
                 <th className="p-4">{isAr ? 'الحالة' : 'Status'}</th>
                 <th className="p-4 text-right">{isAr ? 'إجراءات سريعة' : 'Quick Actions'}</th>
               </tr>
@@ -330,7 +429,7 @@ export default function BookingsAdmin() {
             <tbody className="bg-white text-sm font-medium divide-y divide-gray-200 text-[var(--color-dark-charcoal)]">
               {loading ? (
                 <tr>
-                  <td colSpan={6} className="p-12 text-center text-slate-400">
+                  <td colSpan={7} className="p-12 text-center text-slate-400">
                     <div className="flex flex-col items-center gap-2">
                       <div className="w-6 h-6 border-2 border-[var(--color-saudi-emerald)] border-t-transparent rounded-full animate-spin" />
                       <span>{isAr ? 'جاري تحميل الحجوزات...' : 'Loading bookings...'}</span>
@@ -339,7 +438,7 @@ export default function BookingsAdmin() {
                 </tr>
               ) : filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="p-12 text-center text-slate-400">
+                  <td colSpan={7} className="p-12 text-center text-slate-400">
                     <div className="flex flex-col items-center gap-2">
                       <AlertCircle size={28} className="text-slate-300" />
                       <span className="font-semibold">{isAr ? 'لم يتم العثور على أي حجوزات مطابقة' : 'No bookings found matching criteria'}</span>
@@ -362,8 +461,9 @@ export default function BookingsAdmin() {
                     {/* Guest Details */}
                     <td className="p-4">
                       <div className="font-bold text-slate-900">{b.customerName || 'Guest'}</div>
-                      <div className="text-xs text-slate-500 flex items-center gap-2 mt-0.5">
-                        <span>{b.customerPhone || b.phone || '-'}</span>
+                      <div className="text-xs text-slate-600 flex items-center gap-1 mt-0.5">
+                        <Phone size={11} className="text-slate-400 shrink-0" />
+                        <span>{b.whatsapp || b.phone || b.customerPhone || '-'}</span>
                       </div>
                       {b.customerEmail && <div className="text-[11px] text-slate-400">{b.customerEmail}</div>}
                     </td>
@@ -391,12 +491,56 @@ export default function BookingsAdmin() {
                       </div>
                     </td>
 
+                    {/* Assigned Driver */}
+                    <td className="p-4">
+                      {b.driverNameSnapshot || b.driverName ? (
+                        <div className="space-y-1">
+                          <div className="font-bold text-xs text-slate-900 flex items-center gap-1">
+                            <UserCheck size={13} className="text-emerald-700 shrink-0" />
+                            <span>{b.driverNameSnapshot || b.driverName}</span>
+                          </div>
+                          <div className="text-[11px] text-slate-600 font-mono">
+                            {b.driverPhoneSnapshot || b.driverPhone || '-'}
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleWhatsAppDriver(b)}
+                            title={isAr ? 'مراسلة السائق عبر واتساب' : 'WhatsApp Driver'}
+                            className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-800 hover:bg-emerald-100 border border-emerald-200 cursor-pointer transition-colors shadow-2xs"
+                          >
+                            <MessageCircle size={11} className="text-emerald-700" />
+                            <span>{isAr ? 'واتساب السائق' : 'WhatsApp Driver'}</span>
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="space-y-1">
+                          <span className="text-[11px] font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded inline-block">
+                            {isAr ? 'لم يُعين' : 'Unassigned'}
+                          </span>
+                          {activeDrivers.length > 0 && (
+                            <select
+                              value=""
+                              onChange={(e) => handleAssignDriver(b.id, e.target.value)}
+                              className="block w-full max-w-[145px] text-[10px] border border-slate-300 rounded p-1 bg-white font-medium text-slate-700 cursor-pointer shadow-2xs hover:border-emerald-600"
+                            >
+                              <option value="">{isAr ? '+ تعيين سائق' : '+ Assign Driver'}</option>
+                              {activeDrivers.map(d => (
+                                <option key={d.id} value={d.id}>{d.name} ({d.phone})</option>
+                              ))}
+                            </select>
+                          )}
+                        </div>
+                      )}
+                    </td>
+
                     {/* Status Badge */}
                     <td className="p-4">
-                      <span className={`px-3 py-1 rounded-full text-xs font-bold inline-block shadow-2xs ${
+                      <span className={`px-2.5 py-1 rounded-full text-xs font-bold inline-block shadow-2xs whitespace-nowrap ${
                         b.status?.toLowerCase() === 'confirmed' ? 'bg-[var(--color-saudi-green)] text-white border border-[var(--color-saudi-emerald)]' :
+                        b.status?.toLowerCase().includes('chauffeur') || b.status?.toLowerCase().includes('driver') ? 'bg-indigo-600 text-white border border-indigo-700' :
                         b.status?.toLowerCase() === 'completed' ? 'bg-blue-600 text-white border border-blue-700' :
                         b.status?.toLowerCase() === 'cancelled' ? 'bg-red-600 text-white border border-red-700' :
+                        b.status?.toLowerCase() === 'in progress' ? 'bg-amber-600 text-white border border-amber-700' :
                         'bg-yellow-500 text-white border border-yellow-600'
                       }`}>
                         {b.status || 'Pending'}
@@ -405,23 +549,27 @@ export default function BookingsAdmin() {
 
                     {/* Action Buttons */}
                     <td className="p-4 text-right">
-                      <div className="flex items-center justify-end gap-1.5">
-                        {/* View Voucher / Details */}
+                      <div className="flex items-center justify-end gap-1.5 flex-wrap">
+                        {/* WhatsApp Customer Button (Directly opens WhatsApp using stored number, no popup) */}
                         <button 
-                          onClick={() => setSelectedBooking(b)} 
-                          title={isAr ? 'عرض التفاصيل والسند' : 'View Details & Voucher'}
-                          className="p-2 text-slate-600 hover:text-gray-700 hover:bg-gray-50 rounded-lg transition-colors cursor-pointer"
+                          onClick={() => handleWhatsAppCustomer(b)} 
+                          title={isAr ? 'مراسلة العميل عبر واتساب بالرقم المخزن' : 'WhatsApp Customer (Uses Stored Phone)'}
+                          className="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition-all flex items-center gap-1 cursor-pointer shadow-2xs active:scale-95"
                         >
-                          <Eye size={16} />
+                          <MessageCircle size={13} />
+                          <span className="whitespace-nowrap">{isAr ? 'واتساب العميل' : 'WhatsApp Customer'}</span>
                         </button>
 
-                        {/* WhatsApp Dispatch */}
+                        {/* View Voucher / Details */}
                         <button 
-                          onClick={() => handleWhatsApp(b)} 
-                          title={isAr ? 'إرسال تأكيد عبر واتساب' : 'Dispatch via WhatsApp'}
-                          className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-lg transition-colors cursor-pointer"
+                          onClick={() => {
+                            setSelectedBooking(b);
+                            setAssigningDriverId(b.driverId ? String(b.driverId) : '');
+                          }} 
+                          title={isAr ? 'عرض التفاصيل وتعيين السائق' : 'View Details & Assign Driver'}
+                          className="p-1.5 text-slate-700 hover:text-gray-950 hover:bg-gray-100 rounded-lg transition-colors cursor-pointer border border-slate-200"
                         >
-                          <MessageCircle size={16} />
+                          <Eye size={15} />
                         </button>
 
                         {/* Quick Confirm */}
@@ -429,9 +577,9 @@ export default function BookingsAdmin() {
                           <button 
                             onClick={() => updateStatus(b.id, 'Confirmed')} 
                             title={isAr ? 'تأكيد الحجز' : 'Confirm Booking'}
-                            className="p-2 text-gray-700 hover:bg-gray-200 rounded-lg transition-colors cursor-pointer"
+                            className="p-1.5 text-emerald-700 hover:bg-emerald-50 rounded-lg transition-colors cursor-pointer border border-emerald-200"
                           >
-                            <Check size={16} />
+                            <Check size={15} />
                           </button>
                         )}
 
@@ -440,9 +588,9 @@ export default function BookingsAdmin() {
                           <button 
                             onClick={() => updateStatus(b.id, 'Cancelled')} 
                             title={isAr ? 'إلغاء الحجز' : 'Cancel Booking'}
-                            className="p-2 text-amber-600 hover:bg-amber-50 rounded-lg transition-colors cursor-pointer"
+                            className="p-1.5 text-amber-600 hover:bg-amber-50 rounded-lg transition-colors cursor-pointer border border-amber-200"
                           >
-                            <X size={16} />
+                            <X size={15} />
                           </button>
                         )}
 
@@ -453,18 +601,18 @@ export default function BookingsAdmin() {
                             setIsEditing(true);
                           }} 
                           title={isAr ? 'تعديل الحجز' : 'Edit Booking'}
-                          className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors cursor-pointer"
+                          className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors cursor-pointer border border-blue-200"
                         >
-                          <Edit size={16} />
+                          <Edit size={15} />
                         </button>
 
                         {/* Delete Booking */}
                         <button 
                           onClick={() => handleDelete(b.id)} 
                           title={isAr ? 'حذف الحجز' : 'Delete Booking'}
-                          className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
+                          className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg transition-colors cursor-pointer border border-red-200"
                         >
-                          <Trash2 size={16} />
+                          <Trash2 size={15} />
                         </button>
                       </div>
                     </td>
@@ -517,34 +665,48 @@ export default function BookingsAdmin() {
                 </div>
               </div>
 
-              {/* Guest & Trip Details Grid */}
+              {/* Customer & Trip Details Grid */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
-                <div className="p-4 rounded-xl bg-slate-50/70 border border-slate-100 space-y-2">
-                  <div className="font-bold text-slate-500 uppercase tracking-wider">{isAr ? 'بيانات الضيف' : 'Guest Information'}</div>
+                {/* 1. Customer Information */}
+                <div className="p-4 rounded-xl bg-slate-50/70 border border-slate-200 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-slate-800 uppercase tracking-wider">{isAr ? 'بيانات العميل' : 'Customer Information'}</span>
+                    <button
+                      type="button"
+                      onClick={() => handleWhatsAppCustomer(selectedBooking)}
+                      className="px-2 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md text-[11px] font-bold flex items-center gap-1 cursor-pointer transition-colors shadow-2xs"
+                    >
+                      <MessageCircle size={12} />
+                      <span>{isAr ? 'واتساب العميل' : 'WhatsApp Customer'}</span>
+                    </button>
+                  </div>
                   <div><strong className="text-slate-800">{isAr ? 'الاسم:' : 'Name:'}</strong> {selectedBooking.customerName || 'N/A'}</div>
                   <div><strong className="text-slate-800">{isAr ? 'الهاتف:' : 'Phone:'}</strong> {selectedBooking.customerPhone || selectedBooking.phone || 'N/A'}</div>
+                  <div><strong className="text-slate-800">{isAr ? 'الواتساب:' : 'WhatsApp:'}</strong> {selectedBooking.whatsapp || selectedBooking.customerPhone || selectedBooking.phone || 'N/A'}</div>
                   <div><strong className="text-slate-800">{isAr ? 'البريد:' : 'Email:'}</strong> {selectedBooking.customerEmail || 'N/A'}</div>
                 </div>
 
-                <div className="p-4 rounded-xl bg-slate-50/70 border border-slate-100 space-y-2">
-                  <div className="font-bold text-slate-500 uppercase tracking-wider">{isAr ? 'الرحلة والسيارة' : 'Trip & Vehicle'}</div>
-                  <div><strong className="text-slate-800">{isAr ? 'السيارة:' : 'Vehicle:'}</strong> {selectedBooking.vehicleNameSnapshot || 'VIP Vehicle'}</div>
-                  <div><strong className="text-slate-800">{isAr ? 'التاريخ والوقت:' : 'Schedule:'}</strong> {selectedBooking.date} at {selectedBooking.time || 'Flexible'}</div>
-                  <div><strong className="text-slate-800">{isAr ? 'السعة:' : 'Capacity:'}</strong> {selectedBooking.passengers || 1} Passengers, {selectedBooking.luggage || 0} Bags</div>
+                {/* 2. Trip Information */}
+                <div className="p-4 rounded-xl bg-slate-50/70 border border-slate-200 space-y-2">
+                  <div className="font-bold text-slate-800 uppercase tracking-wider">{isAr ? 'بيانات الرحلة' : 'Trip Information'}</div>
+                  <div><strong className="text-slate-800">{isAr ? 'المركبة:' : 'Vehicle:'}</strong> {selectedBooking.vehicleNameSnapshot || 'VIP Vehicle'}</div>
+                  <div><strong className="text-slate-800">{isAr ? 'التاريخ والوقت:' : 'Date & Time:'}</strong> {selectedBooking.date} at {selectedBooking.time || 'Flexible'}</div>
+                  <div><strong className="text-slate-800">{isAr ? 'السعر المتفق عليه:' : 'Price:'}</strong> <span className="font-bold text-emerald-700">{selectedBooking.price} SAR</span></div>
+                  <div><strong className="text-slate-800">{isAr ? 'السعة:' : 'Capacity:'}</strong> {selectedBooking.passengers || 1} {isAr ? 'ركاب' : 'Passengers'}, {selectedBooking.luggage || 0} {isAr ? 'حقائب' : 'Luggage'}</div>
                 </div>
               </div>
 
               {/* Route Display */}
-              <div className="p-4 rounded-xl bg-gray-50/50 border border-gray-200 text-xs">
-                <div className="font-bold text-[var(--color-dark-charcoal)] mb-2">{isAr ? 'خط السير' : 'Routing Details'}</div>
+              <div className="p-4 rounded-xl bg-gray-50/70 border border-gray-200 text-xs">
+                <div className="font-bold text-slate-800 mb-2">{isAr ? 'خط سير الرحلة' : 'Trip Route'}</div>
                 <div className="flex items-center gap-3">
                   <div className="flex-1 p-2.5 rounded-lg bg-white border border-gray-200 font-semibold text-slate-800">
-                    <span className="text-gray-700 block text-[10px] uppercase font-bold">{isAr ? 'نقطة الانطلاق / الاستقبال' : 'Pickup Location'}</span>
+                    <span className="text-emerald-800 block text-[10px] uppercase font-bold">{isAr ? 'نقطة الانطلاق' : 'Pickup Location'}</span>
                     {selectedBooking.pickup}
                   </div>
-                  <div className="text-gray-600 font-bold">➔</div>
+                  <div className="text-gray-500 font-bold">➔</div>
                   <div className="flex-1 p-2.5 rounded-lg bg-white border border-gray-200 font-semibold text-slate-800">
-                    <span className="text-gray-700 block text-[10px] uppercase font-bold">{isAr ? 'الوجهة / الفندق' : 'Drop-off Location'}</span>
+                    <span className="text-emerald-800 block text-[10px] uppercase font-bold">{isAr ? 'نقطة الوصول' : 'Destination'}</span>
                     {selectedBooking.destination}
                   </div>
                 </div>
@@ -557,35 +719,144 @@ export default function BookingsAdmin() {
                   <p className="text-amber-800 whitespace-pre-wrap">{selectedBooking.specialRequests}</p>
                 </div>
               )}
+
+              {/* 3. Driver Information & Assignment Section */}
+              <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 text-xs space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="font-bold text-slate-800 flex items-center gap-1.5">
+                    <User size={15} className="text-emerald-700" />
+                    <span>{isAr ? 'بيانات السائق' : 'Driver Information'}</span>
+                  </div>
+                  {(selectedBooking.driverNameSnapshot || selectedBooking.driverName) && (
+                    <button
+                      type="button"
+                      onClick={() => handleWhatsAppDriver(selectedBooking)}
+                      className="px-2 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md text-[11px] font-bold flex items-center gap-1 cursor-pointer transition-colors shadow-2xs"
+                    >
+                      <MessageCircle size={12} />
+                      <span>{isAr ? 'واتساب السائق' : 'WhatsApp Driver'}</span>
+                    </button>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1 text-slate-700">
+                  <div><strong>{isAr ? 'اسم السائق:' : 'Driver Name:'}</strong> {selectedBooking.driverNameSnapshot || selectedBooking.driverName || (isAr ? 'لم يُحدد بعد' : 'Not assigned yet')}</div>
+                  <div><strong>{isAr ? 'رقم الهاتف:' : 'Phone / WhatsApp:'}</strong> {selectedBooking.driverPhoneSnapshot || selectedBooking.driverPhone || 'N/A'}</div>
+                  <div><strong>{isAr ? 'المركبة / اللوحة:' : 'Vehicle / Plate:'}</strong> {selectedBooking.driverPlate || 'N/A'}</div>
+                </div>
+
+                {/* Assign Driver Dropdown */}
+                <div className="pt-2 border-t border-slate-200 flex flex-wrap items-center gap-2">
+                  <span className="font-bold text-slate-700">{isAr ? 'تعيين السائق:' : 'Assign Driver:'}</span>
+                  <select
+                    value={assigningDriverId}
+                    onChange={(e) => setAssigningDriverId(e.target.value)}
+                    className="flex-1 min-w-[200px] border border-slate-300 rounded-lg p-2 text-xs font-medium bg-white text-slate-800 focus:ring-2 focus:ring-emerald-500 outline-none"
+                  >
+                    <option value="">{isAr ? '-- اختر سائقاً نشطاً --' : '-- Select Active Driver --'}</option>
+                    {activeDrivers.map(d => (
+                      <option key={d.id} value={d.id}>
+                        {d.name} ({d.phone}) {d.vehicleInfo ? `- ${d.vehicleInfo}` : ''}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!assigningDriverId) {
+                        alert(isAr ? 'يرجى اختيار سائق من القائمة أولاً' : 'Please select a driver from the dropdown first');
+                        return;
+                      }
+                      handleAssignDriver(selectedBooking.id, assigningDriverId);
+                    }}
+                    className="px-3 py-2 bg-slate-900 hover:bg-black text-white rounded-lg text-xs font-bold cursor-pointer transition-colors shadow-2xs"
+                  >
+                    {isAr ? 'حفظ وتعيين السائق' : 'Save / Assign Driver'}
+                  </button>
+                </div>
+              </div>
+
+              {/* 4. Booking Status Actions (No prompt asking for phone/WhatsApp) */}
+              <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+                    {isAr ? 'تغيير حالة الحجز (Booking Status)' : 'Booking Status Actions'}
+                  </span>
+                  <span className="text-[11px] font-bold px-2 py-0.5 rounded bg-slate-200 text-slate-800">
+                    {selectedBooking.status || 'Pending'}
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => updateStatus(selectedBooking.id, 'Confirmed')}
+                    className={`p-2.5 rounded-lg text-xs font-bold text-center border transition-all cursor-pointer ${
+                      selectedBooking.status?.toLowerCase() === 'confirmed'
+                        ? 'bg-emerald-700 text-white border-emerald-800 shadow-xs'
+                        : 'bg-white text-slate-700 border-slate-300 hover:bg-emerald-50'
+                    }`}
+                  >
+                    {isAr ? 'تأكيد (Confirmed)' : 'Confirm'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => updateStatus(selectedBooking.id, 'In Progress')}
+                    className={`p-2.5 rounded-lg text-xs font-bold text-center border transition-all cursor-pointer ${
+                      selectedBooking.status?.toLowerCase() === 'in progress'
+                        ? 'bg-amber-600 text-white border-amber-700 shadow-xs'
+                        : 'bg-white text-slate-700 border-slate-300 hover:bg-amber-50'
+                    }`}
+                  >
+                    {isAr ? 'قيد التنفيذ (In Progress)' : 'In Progress'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => updateStatus(selectedBooking.id, 'Completed')}
+                    className={`p-2.5 rounded-lg text-xs font-bold text-center border transition-all cursor-pointer ${
+                      selectedBooking.status?.toLowerCase() === 'completed'
+                        ? 'bg-blue-600 text-white border-blue-700 shadow-xs'
+                        : 'bg-white text-slate-700 border-slate-300 hover:bg-blue-50'
+                    }`}
+                  >
+                    {isAr ? 'مكتمل (Completed)' : 'Completed'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => updateStatus(selectedBooking.id, 'Cancelled')}
+                    className={`p-2.5 rounded-lg text-xs font-bold text-center border transition-all cursor-pointer ${
+                      selectedBooking.status?.toLowerCase() === 'cancelled'
+                        ? 'bg-red-600 text-white border-red-700 shadow-xs'
+                        : 'bg-white text-slate-700 border-slate-300 hover:bg-red-50'
+                    }`}
+                  >
+                    {isAr ? 'إلغاء (Cancelled)' : 'Cancel'}
+                  </button>
+                </div>
+              </div>
             </div>
 
             {/* Modal Footer Controls */}
             <div className="flex flex-wrap items-center justify-between gap-3 pt-4 border-t border-slate-100">
               <div className="flex items-center gap-2">
                 <button 
-                  onClick={() => updateStatus(selectedBooking.id, 'Confirmed')}
-                  className="px-3.5 py-2 rounded-xl bg-[var(--color-saudi-emerald)] hover:bg-[var(--color-saudi-emerald)] text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer"
+                  onClick={() => handleWhatsAppCustomer(selectedBooking)}
+                  className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-xs"
                 >
-                  <Check size={14} />
-                  <span>{isAr ? 'تأكيد الحجز' : 'Mark Confirmed'}</span>
+                  <MessageCircle size={14} />
+                  <span>{isAr ? 'واتساب العميل' : 'WhatsApp Customer'}</span>
                 </button>
-                <button 
-                  onClick={() => updateStatus(selectedBooking.id, 'Completed')}
-                  className="px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer"
-                >
-                  <CheckCircle size={14} />
-                  <span>{isAr ? 'اكتملت الرحلة' : 'Mark Completed'}</span>
-                </button>
+                {(selectedBooking.driverNameSnapshot || selectedBooking.driverName) && (
+                  <button 
+                    onClick={() => handleWhatsAppDriver(selectedBooking)}
+                    className="px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-black text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-xs"
+                  >
+                    <MessageCircle size={14} />
+                    <span>{isAr ? 'واتساب السائق' : 'WhatsApp Driver'}</span>
+                  </button>
+                )}
               </div>
 
               <div className="flex items-center gap-2">
-                <button 
-                  onClick={() => handleWhatsApp(selectedBooking)}
-                  className="px-4 py-2 rounded-xl bg-green-500 hover:bg-green-600 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer"
-                >
-                  <MessageCircle size={14} />
-                  <span>{isAr ? 'واتساب' : 'WhatsApp'}</span>
-                </button>
                 <button 
                   onClick={() => setSelectedBooking(null)}
                   className="px-4 py-2 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-bold cursor-pointer"
@@ -726,11 +997,93 @@ export default function BookingsAdmin() {
                     onChange={e => setEditForm({ ...editForm, status: e.target.value })} 
                     className="w-full border border-slate-200 rounded-xl p-2.5 text-xs font-medium focus:ring-2 focus:ring-[var(--color-saudi-green)] outline-none"
                   >
-                    <option value="Confirmed">{isAr ? 'مؤكد' : 'Confirmed'}</option>
-                    <option value="Pending">{isAr ? 'قيد الانتظار' : 'Pending'}</option>
-                    <option value="Completed">{isAr ? 'مكتمل' : 'Completed'}</option>
+                    <option value="Confirmed">{isAr ? 'مؤكد (Step 2)' : 'Confirmed (Step 2)'}</option>
+                    <option value="Chauffeur Assigned">{isAr ? 'تم تعيين السائق (Step 3: Chauffeur Assigned)' : 'Chauffeur Assigned (Step 3)'}</option>
+                    <option value="Completed">{isAr ? 'مكتمل (Step 4: Trip Completed)' : 'Completed (Step 4)'}</option>
+                    <option value="Pending">{isAr ? 'قيد الانتظار (Step 1)' : 'Pending (Step 1)'}</option>
                     <option value="Cancelled">{isAr ? 'ملغي' : 'Cancelled'}</option>
                   </select>
+                </div>
+              </div>
+
+              {/* Chauffeur / Driver Assignment */}
+              <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <div className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                    <User size={14} className="text-emerald-700" />
+                    <span>{isAr ? 'تخصيص بيانات السائق (Driver Assignment)' : 'Driver Allocation'}</span>
+                  </div>
+                  {activeDrivers.length > 0 && (
+                    <select
+                      value={editForm.driverId ? String(editForm.driverId) : ''}
+                      onChange={(e) => {
+                        const dId = e.target.value;
+                        if (!dId) {
+                          setEditForm({
+                            ...editForm,
+                            driverId: null,
+                            driverNameSnapshot: '',
+                            driverPhoneSnapshot: '',
+                            driverName: '',
+                            driverPhone: '',
+                            driverPlate: ''
+                          });
+                          return;
+                        }
+                        const selected = activeDrivers.find(d => String(d.id) === dId);
+                        if (selected) {
+                          setEditForm({
+                            ...editForm,
+                            driverId: selected.id,
+                            driverNameSnapshot: selected.name,
+                            driverPhoneSnapshot: selected.phone,
+                            driverName: selected.name,
+                            driverPhone: selected.phone,
+                            driverPlate: selected.vehicleInfo || '',
+                            status: editForm.status === 'Pending' ? 'Chauffeur Assigned' : editForm.status
+                          });
+                        }
+                      }}
+                      className="text-[11px] border border-slate-300 rounded-md p-1 bg-white font-medium text-slate-700"
+                    >
+                      <option value="">{isAr ? '-- اختر من قائمة السائقين --' : '-- Choose from Active Drivers --'}</option>
+                      {activeDrivers.map(d => (
+                        <option key={d.id} value={d.id}>{d.name} ({d.phone})</option>
+                      ))}
+                    </select>
+                  )}
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-600 mb-1">{isAr ? 'اسم السائق' : 'Driver Name'}</label>
+                    <input 
+                      type="text" 
+                      value={editForm.driverName || ''} 
+                      onChange={e => setEditForm({ ...editForm, driverName: e.target.value, driverNameSnapshot: e.target.value })} 
+                      placeholder="e.g. Captain Tariq"
+                      className="w-full border border-slate-200 bg-white rounded-lg p-2 text-xs font-medium focus:ring-2 focus:ring-[var(--color-saudi-green)] outline-none" 
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-600 mb-1">{isAr ? 'رقم هاتف السائق' : 'Driver Phone'}</label>
+                    <input 
+                      type="text" 
+                      value={editForm.driverPhone || ''} 
+                      onChange={e => setEditForm({ ...editForm, driverPhone: e.target.value, driverPhoneSnapshot: e.target.value })} 
+                      placeholder="+966 5X XXX XXXX"
+                      className="w-full border border-slate-200 bg-white rounded-lg p-2 text-xs font-medium focus:ring-2 focus:ring-[var(--color-saudi-green)] outline-none" 
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-600 mb-1">{isAr ? 'لوحة السيارة / الموديل' : 'Vehicle Plate / Car'}</label>
+                    <input 
+                      type="text" 
+                      value={editForm.driverPlate || ''} 
+                      onChange={e => setEditForm({ ...editForm, driverPlate: e.target.value })} 
+                      placeholder="e.g. أ ب ج 1234 (GMC XL)"
+                      className="w-full border border-slate-200 bg-white rounded-lg p-2 text-xs font-medium focus:ring-2 focus:ring-[var(--color-saudi-green)] outline-none" 
+                    />
+                  </div>
                 </div>
               </div>
 

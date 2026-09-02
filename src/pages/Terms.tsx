@@ -73,8 +73,8 @@ export default function Terms() {
           </h2>
           <p>
             {isAr
-              ? 'قد يحتوي هذا الموقع على إعلانات وروابط تابعة لجهات خارجية (مثل Google AdSense). نحن لسنا مسؤولين عن محتوى هذه الإعلانات أو مواقع الأطراف الثالثة.'
-              : 'This website may contain advertisements and links to third-party websites (e.g., Google AdSense). We are not responsible for the content of these ads or third-party sites.'}
+              ? 'قد يحتوي هذا الموقع على إعلانات ومعلومات وروابط تابعة لجهات ومواقع خارجية شريكة. نحن لسنا مسؤولين عن محتوى أو سياسات تلك المواقع الخارجية.'
+              : 'This website may contain partner notices, advertisements and links to verified third-party websites. We are not responsible for the content of these external sites.'}
           </p>
         </div>
       </div>

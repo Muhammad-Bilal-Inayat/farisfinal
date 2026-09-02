@@ -20,11 +20,14 @@ import {
   Check, 
   RotateCcw, 
   Info,
-  ShieldCheck
+  ShieldCheck,
+  Search
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useSiteSettings } from '../context/SiteSettingsContext';
 import { useWhatsApp } from '../hooks/useWhatsApp';
+import { useBookingTracker } from '../context/BookingTrackerContext';
+import { getVehicleImageByName } from '../utils/imageUtils';
 
 export interface Vehicle {
   id: number;
@@ -58,6 +61,7 @@ export default function BookingWidget({ preselectedVehicleId, onVehicleChange }:
   const isAr = i18n.language === 'ar';
   const { user } = useAuth();
   const { settings } = useWhatsApp();
+  const { openTracker } = useBookingTracker();
   const [searchParams] = useSearchParams();
   
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
@@ -210,20 +214,7 @@ export default function BookingWidget({ preselectedVehicleId, onVehicleChange }:
 
   // Car image helper
   const getCarImage = (name: string) => {
-    const i = name.toLowerCase();
-    if (i.includes('camry') || i.includes('sedan') || i.includes('taurus') || i.includes('lexus') || i.includes('mercedes')) {
-      return "https://images.unsplash.com/photo-1549317661-bd32c8ce0db2?auto=format&fit=crop&w=800&q=80";
-    }
-    if (i.includes('gmc') || i.includes('suv') || i.includes('yukon')) {
-      return "https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?auto=format&fit=crop&w=800&q=80";
-    }
-    if (i.includes('staria') || i.includes('van') || i.includes('hiace') || i.includes('h1')) {
-      return "https://images.unsplash.com/photo-1621007947382-bb3c399b52c5?auto=format&fit=crop&w=800&q=80";
-    }
-    if (i.includes('bus') || i.includes('coaster') || i.includes('coster')) {
-      return "https://images.unsplash.com/photo-1570125909232-eb263c188f7e?auto=format&fit=crop&w=800&q=80";
-    }
-    return "https://images.unsplash.com/photo-1494976388531-d1058494cdd8?auto=format&fit=crop&w=800&q=80";
+    return getVehicleImageByName(name);
   };
 
   // Quick preset routes
@@ -430,27 +421,28 @@ export default function BookingWidget({ preselectedVehicleId, onVehicleChange }:
     if (!isStep2Valid) return;
 
     setLoading(true);
+
+    const payload: any = {
+      tripType,
+      pickup: pickup,
+      destination: destination,
+      date,
+      time,
+      passengers,
+      luggage,
+      vehicleId: Number(vehicleId),
+      customerName,
+      phone,
+      email,
+      specialRequest,
+      price: priceCalculation.base || priceCalculation.min
+    };
+
+    if (user) {
+      payload.userId = user.id;
+    }
+
     try {
-      const payload: any = {
-        tripType,
-        pickup: pickup,
-        destination: destination,
-        date,
-        time,
-        passengers,
-        luggage,
-        vehicleId: Number(vehicleId),
-        customerName,
-        phone,
-        email,
-        specialRequest,
-        price: priceCalculation.base || priceCalculation.min
-      };
-
-      if (user) {
-        payload.userId = user.id;
-      }
-
       const res = await fetch('/api/bookings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -464,9 +456,12 @@ export default function BookingWidget({ preselectedVehicleId, onVehicleChange }:
           minPrice: priceCalculation.min,
           maxPrice: priceCalculation.max
         });
+      } else {
+        alert(data.error || (isAr ? 'فشل تسجيل الحجز' : 'Failed to save booking'));
       }
     } catch (error) {
-      console.error(error);
+      console.error('Booking submission error:', error);
+      alert(isAr ? 'حدث خطأ أثناء الاتصال بالخادم' : 'Server connection error');
     } finally {
       setLoading(false);
     }
@@ -509,6 +504,9 @@ export default function BookingWidget({ preselectedVehicleId, onVehicleChange }:
         <h3 className="text-2xl md:text-3xl font-bold text-[var(--color-dark-charcoal)] mb-1">
           {isAr ? 'رقم الحجز:' : 'Your Booking ID:'} <span className="text-[var(--color-saudi-green)] font-mono">{success.id}</span>
         </h3>
+
+
+
         <p className="text-xs md:text-sm text-[var(--color-dark-charcoal)]/70 mb-6 max-w-md mx-auto">
           {isAr ? 'تم إنشاء حجزك المبدئي بنجاح. يرجى التواصل مع فريق التنسيق والمتابعة على الواتساب لتأكيد السائق واستلام رابط التتبع المباشر.' : 'We have generated your provisional booking reservation. Contact our 24/7 Dispatch Team on WhatsApp to finalize your driver allocation and receive your live tracking link.'}
         </p>
@@ -548,14 +546,25 @@ export default function BookingWidget({ preselectedVehicleId, onVehicleChange }:
           </div>
         </div>
 
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-3 max-w-md mx-auto mb-3">
+          <button
+            type="button"
+            onClick={() => openTracker(success.id)}
+            className="w-full bg-[#05513F] hover:bg-emerald-800 text-white py-3.5 px-5 rounded-xl font-extrabold text-sm transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer active:scale-98"
+          >
+            <Search size={17} className="text-amber-300" />
+            <span>{isAr ? 'تتبع حالة هذا الحجز فوراً' : 'Track This Booking Status Now'}</span>
+          </button>
+        </div>
+
         <div className="flex flex-col sm:flex-row items-center justify-center gap-3 max-w-md mx-auto">
           <a 
             href={`https://wa.me/${phoneNumber}?text=${whatsappMsg}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="w-full sm:flex-1 bg-[#25D366] hover:bg-[#128C7E] text-white py-3.5 px-6 rounded-xl font-bold text-sm transition-all shadow-lg flex items-center justify-center gap-2 hover:scale-[1.02]"
+            className="w-full sm:flex-1 bg-[#25D366] hover:bg-[#128C7E] text-white py-3.5 px-5 rounded-xl font-bold text-sm transition-all shadow-md flex items-center justify-center gap-2 hover:scale-[1.02]"
           >
-            <Phone size={18} /> {isAr ? 'تأكيد الحجز عبر واتساب الآن' : 'Confirm via WhatsApp Now'}
+            <Phone size={18} /> {isAr ? 'تأكيد الحجز عبر واتساب' : 'Confirm via WhatsApp'}
           </a>
 
           <button
@@ -564,7 +573,7 @@ export default function BookingWidget({ preselectedVehicleId, onVehicleChange }:
               setSuccess(null);
               setStep(1);
             }}
-            className="w-full sm:w-auto px-4 py-3.5 bg-white hover:bg-gray-50 text-[var(--color-dark-charcoal)] border border-gray-300 rounded-xl text-xs font-bold transition-colors flex items-center justify-center gap-1.5"
+            className="w-full sm:w-auto px-4 py-3.5 bg-white hover:bg-gray-50 text-[var(--color-dark-charcoal)] border border-gray-300 rounded-xl text-xs font-bold transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
           >
             <RotateCcw size={14} /> {isAr ? 'حجز جديد' : 'New Booking'}
           </button>
@@ -576,42 +585,38 @@ export default function BookingWidget({ preselectedVehicleId, onVehicleChange }:
   return (
     <div className="text-left rtl:text-right" id="booking-form-container">
       {/* Visual Stepper & Progress Indicator */}
-      <div className="mb-3 sm:mb-4 lg:mb-3 xl:mb-4">
-        <div className="flex items-center justify-between mb-2">
+      <div className="mb-2.5 sm:mb-3">
+        <div className="flex items-center justify-between mb-1.5">
           <div className="flex items-center gap-1.5 sm:gap-2">
-            <div className={`w-6 h-6 sm:w-7 sm:h-7 rounded-full flex items-center justify-center text-[11px] sm:text-xs font-bold transition-all ${
-              step >= 1 ? 'bg-[var(--color-saudi-green)] text-white shadow-sm' : 'bg-gray-100 text-gray-400'
+            <div className={`w-5 h-5 sm:w-6 sm:h-6 rounded-full flex items-center justify-center text-[10px] sm:text-xs font-bold transition-all ${
+              step >= 1 ? 'bg-[var(--color-saudi-green)] text-white shadow-xs' : 'bg-gray-100 text-gray-400'
             }`}>
-              {step > 1 ? <Check size={13} strokeWidth={3} /> : '1'}
+              {step > 1 ? <Check size={11} strokeWidth={3} /> : '1'}
             </div>
             <div>
-              <span className={`text-[11px] sm:text-xs font-bold block ${step === 1 ? 'text-[var(--color-dark-charcoal)]' : 'text-gray-900/70'}`}>
-                {isAr ? '١. الرحلة والوجهة والتوقيت' : '1. Route, Time & Vehicle'}
-              </span>
-              <span className="text-[9px] sm:text-[10px] text-gray-700 hidden sm:block">
-                {isAr ? 'حدد الوجهة والوقت والسيارة' : 'Destination, Time & Car'}
+              <span className={`text-[11px] sm:text-xs font-bold block leading-tight ${step === 1 ? 'text-[var(--color-dark-charcoal)]' : 'text-gray-500'}`}>
+                {isAr ? '١. تفاصيل الرحلة' : '1. Route & Time'}
               </span>
             </div>
           </div>
 
-          <div className="h-[2px] flex-1 mx-2.5 sm:mx-4 bg-emerald-100 relative rounded-full overflow-hidden">
+          <div className="h-[2px] flex-1 mx-2 sm:mx-3 bg-slate-200 relative rounded-full overflow-hidden">
             <div 
-              className="h-full bg-[var(--color-saudi-green)] transition-all duration-500 rounded-full" 
+              className="h-full bg-[var(--color-saudi-green)] transition-all duration-300 rounded-full" 
               style={{ width: step === 1 ? '50%' : '100%' }}
             />
           </div>
 
           <div className="flex items-center gap-1.5 sm:gap-2">
-            <div className={`w-6 h-6 sm:w-7 sm:h-7 rounded-full flex items-center justify-center text-[11px] sm:text-xs font-bold transition-all ${
-              step >= 2 ? 'bg-[var(--color-saudi-green)] text-white shadow-sm' : 'bg-gray-100 text-gray-400 border border-gray-200'
+            <div className={`w-5 h-5 sm:w-6 sm:h-6 rounded-full flex items-center justify-center text-[10px] sm:text-xs font-bold transition-all ${
+              step >= 2 ? 'bg-[var(--color-saudi-green)] text-white shadow-xs' : 'bg-gray-100 text-gray-400 border border-gray-200'
             }`}>
               2
             </div>
             <div>
-              <span className={`text-[11px] sm:text-xs font-bold block ${step === 2 ? 'text-[var(--color-dark-charcoal)]' : 'text-gray-900/70'}`}>
-                {isAr ? '٢. بيانات الضيف' : '2. Guest Details'}
+              <span className={`text-[11px] sm:text-xs font-bold block leading-tight ${step === 2 ? 'text-[var(--color-dark-charcoal)]' : 'text-gray-500'}`}>
+                {isAr ? '٢. بيانات الضيف' : '2. Guest Info'}
               </span>
-              <span className="text-[9px] sm:text-[10px] text-gray-700 hidden sm:block">{isAr ? 'التواصل والتنسيق' : 'Contact & Dispatch'}</span>
             </div>
           </div>
         </div>
@@ -619,26 +624,23 @@ export default function BookingWidget({ preselectedVehicleId, onVehicleChange }:
 
       {/* SELECTED CAR SHOWCASE BANNER (When a vehicle is already picked or preselected) */}
       {selectedVehicleObj && (
-        <div className="bg-gradient-to-r from-emerald-50 via-emerald-50/70 to-emerald-100/60 border-2 border-[var(--color-saudi-green)] rounded-2xl p-3 sm:p-4 mb-4 shadow-sm animate-in fade-in slide-in-from-top-2 duration-300">
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <div className="w-14 sm:w-16 h-12 rounded-xl overflow-hidden bg-white border border-gray-300 shrink-0 shadow-xs">
-                <ResponsiveImage src={selectedVehicleObj.imageUrl || getCarImage(selectedVehicleObj.name)} alt={selectedVehicleObj.name} className="w-full h-full object-cover" sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw" />
+        <div className="bg-gradient-to-r from-emerald-50 via-emerald-50/70 to-emerald-100/50 border border-emerald-300 rounded-xl p-2.5 sm:p-3 mb-2.5 sm:mb-3 shadow-2xs">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2.5 min-w-0 flex-1">
+              <div className="w-12 sm:w-14 h-10 rounded-lg overflow-hidden bg-white border border-slate-200 shrink-0 shadow-2xs">
+                <ResponsiveImage src={getVehicleImageByName(selectedVehicleObj.name, selectedVehicleObj.imageUrl)} alt={selectedVehicleObj.name} className="w-full h-full object-cover" sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw" />
               </div>
-              <div>
-                <div className="flex items-center gap-1.5 mb-0.5">
-                  <span className="bg-[var(--color-saudi-green)] text-white text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 shadow-xs">
-                    <CheckCircle2 size={11} /> {isAr ? 'تم اختيار السيارة بنجاح' : 'Car Auto-Selected'}
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-1.5">
+                  <span className="bg-[var(--color-saudi-green)] text-white text-[9px] font-bold px-1.5 py-0.2 rounded-sm flex items-center gap-0.5 shrink-0">
+                    <CheckCircle2 size={10} /> {isAr ? 'مختارة' : 'Selected'}
                   </span>
-                  <span className="text-[10px] font-bold text-gray-900">
-                    {selectedVehicleObj.year || '2025/2026'}
-                  </span>
+                  <h3 className="font-extrabold text-xs sm:text-sm text-[var(--color-dark-charcoal)] truncate">
+                    {selectedVehicleObj.name}
+                  </h3>
                 </div>
-                <h3 className="font-extrabold text-sm sm:text-base text-[var(--color-dark-charcoal)]">
-                  {selectedVehicleObj.name}
-                </h3>
-                <p className="text-[11px] text-gray-900 font-semibold">
-                  {selectedVehicleObj.passengerCapacity} {isAr ? 'ركاب' : 'Pax'} • {selectedVehicleObj.luggageCapacity} {isAr ? 'حقائب' : 'Bags'} • {isAr ? 'تبدأ من' : 'From'} {selectedVehicleObj.startingPrice} {isAr ? 'ريال' : 'SAR'}
+                <p className="text-[10px] text-gray-600 font-semibold truncate mt-0.5">
+                  {selectedVehicleObj.passengerCapacity} {t('pass')} • {selectedVehicleObj.luggageCapacity} {t('luggage_short')} • {isAr ? `تبدأ من ${selectedVehicleObj.startingPrice} ريال` : `From ${selectedVehicleObj.startingPrice} SAR`}
                 </p>
               </div>
             </div>
@@ -649,9 +651,9 @@ export default function BookingWidget({ preselectedVehicleId, onVehicleChange }:
                 setVehicleId('');
                 if (onVehicleChange) onVehicleChange('');
               }}
-              className="text-xs text-gray-900 hover:text-[var(--color-dark-charcoal)] font-bold px-2.5 sm:px-3 py-1.5 bg-white hover:bg-emerald-100 rounded-lg border border-emerald-300 transition-colors shrink-0 shadow-xs cursor-pointer"
+              className="text-[11px] text-emerald-800 hover:text-emerald-950 font-bold px-2 py-1 bg-white hover:bg-emerald-100/80 rounded-lg border border-emerald-300 transition-colors shrink-0 shadow-2xs cursor-pointer whitespace-nowrap"
             >
-              {isAr ? 'تغيير السيارة' : 'Change Car'}
+              {isAr ? 'تغيير' : 'Change'}
             </button>
           </div>
         </div>
@@ -659,10 +661,10 @@ export default function BookingWidget({ preselectedVehicleId, onVehicleChange }:
 
       {/* STEP 1: JOURNEY & VEHICLE SELECTION */}
       {step === 1 && (
-        <form onSubmit={handleNextStep} className="space-y-3 sm:space-y-4 lg:space-y-3 xl:space-y-4 animate-in fade-in slide-in-from-right-3 duration-300">
+        <form onSubmit={handleNextStep} className="space-y-2.5 sm:space-y-3 animate-in fade-in duration-200">
           
           {/* Trip Type Selector */}
-          <div className="bg-gray-50 border border-gray-200 p-1.5 rounded-xl flex gap-1 mb-1">
+          <div className="bg-slate-100/90 border border-slate-200/80 p-1 rounded-xl flex gap-1">
             {[
               { id: 'One Way', label: isAr ? 'اتجاه واحد' : 'One Way' },
               { id: 'Round Trip', label: isAr ? 'ذهاب وعودة' : 'Round Trip' },
@@ -672,10 +674,10 @@ export default function BookingWidget({ preselectedVehicleId, onVehicleChange }:
                 key={type.id}
                 type="button"
                 onClick={() => setTripType(type.id as any)}
-                className={`flex-1 text-[11px] sm:text-xs md:text-sm font-bold py-2 md:py-2.5 rounded-lg transition-all ${
+                className={`flex-1 text-xs sm:text-xs font-bold py-1.5 sm:py-2 rounded-lg transition-all ${
                   tripType === type.id 
-                    ? 'bg-[var(--color-saudi-green)] text-white shadow-md' 
-                    : 'text-[var(--color-dark-charcoal)] hover:bg-emerald-50'
+                    ? 'bg-[var(--color-saudi-green)] text-white shadow-xs' 
+                    : 'text-slate-700 hover:bg-white/80'
                 }`}
               >
                 {type.label}
@@ -683,20 +685,20 @@ export default function BookingWidget({ preselectedVehicleId, onVehicleChange }:
             ))}
           </div>
 
-          {/* Quick Popular Route Chips */}
+          {/* Quick Popular Route Chips - Horizontal Scroll on Mobile */}
           <div>
-            <div className="flex items-center justify-between mb-1.5">
-              <span className="text-[10px] uppercase font-bold text-gray-700 tracking-wider">
-                {isAr ? 'مسارات سريعة جاهزة:' : 'Quick Route Presets:'}
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-[10px] uppercase font-bold text-gray-600 tracking-wider">
+                {isAr ? 'مسارات شائعة سريعة:' : 'Popular Routes:'}
               </span>
             </div>
-            <div className="flex flex-wrap gap-1.5">
+            <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-1 -mx-0.5 px-0.5">
               {popularPresets.map((preset, idx) => (
                 <button
                   key={idx}
                   type="button"
                   onClick={() => handleApplyPreset(preset)}
-                  className="text-[11px] font-semibold px-2.5 py-1 rounded-md bg-gray-50 hover:bg-emerald-100 text-[var(--color-dark-charcoal)] border border-gray-300/70 transition-all cursor-pointer"
+                  className="text-[11px] font-bold px-2 py-1 rounded-lg bg-slate-100/90 hover:bg-emerald-100/80 text-slate-800 hover:text-emerald-900 border border-slate-200/90 transition-all whitespace-nowrap shrink-0 cursor-pointer active:scale-95"
                 >
                   {preset.label}
                 </button>
@@ -704,18 +706,19 @@ export default function BookingWidget({ preselectedVehicleId, onVehicleChange }:
             </div>
           </div>
 
-          {/* Pickup & Destination Inputs */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Pickup */}
-            <div className="flex flex-col">
+          {/* Pickup & Destination Inputs with Quick Swap */}
+          <div className="relative bg-slate-50/90 p-2.5 sm:p-3 rounded-2xl border border-slate-200 shadow-2xs">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 sm:gap-4 relative">
+              {/* Pickup */}
+              <div className="flex flex-col min-w-0">
                 <div className="flex justify-between items-center mb-1">
-                  <label className="text-[11px] uppercase font-bold text-gray-900 flex items-center gap-1">
-                    <MapPin size={13} className="text-[var(--color-saudi-green)]" />
-                    {t('pickup_location')} *
+                  <label className="text-[11px] uppercase font-bold text-gray-800 flex items-center gap-1.5">
+                    <span className="w-2.5 h-2.5 rounded-full bg-[var(--color-saudi-green)] ring-2 ring-emerald-100 shrink-0" />
+                    <span className="truncate">{t('pickup_location')} *</span>
                   </label>
                   {isPickupValid && touched.pickup && (
-                    <span className="text-[10px] font-bold text-gray-600 flex items-center gap-0.5">
-                      <CheckCircle2 size={12} /> {isAr ? 'مكتمل' : 'Valid'}
+                    <span className="text-[9px] font-bold text-emerald-600 flex items-center gap-0.5">
+                      <CheckCircle2 size={10} /> {isAr ? 'مكتمل' : 'Valid'}
                     </span>
                   )}
                 </div>
@@ -727,13 +730,14 @@ export default function BookingWidget({ preselectedVehicleId, onVehicleChange }:
                     value={pickup}
                     onBlur={() => setTouched(prev => ({ ...prev, pickup: true }))}
                     onChange={(e) => setPickup(e.target.value)}
-                    placeholder={isAr ? 'مثال: مطار جدة (JED) أو فندقك' : 'e.g., Jeddah Airport (JED) or Hotel'} aria-label={t('pickup_location')}
-                    className={`w-full bg-gray-50/40 border p-2.5 rounded-xl text-xs md:text-sm font-medium text-[var(--color-dark-charcoal)] outline-none transition-all ${
+                    placeholder={isAr ? 'مثال: مطار جدة (JED) أو فندقك' : 'e.g., Jeddah Airport (JED) or Hotel'}
+                    aria-label={t('pickup_location')}
+                    className={`w-full bg-white border px-3 py-2 sm:py-1.5 min-h-[38px] rounded-xl text-xs sm:text-sm font-medium text-[var(--color-dark-charcoal)] outline-none transition-all ${
                       touched.pickup && !isPickupValid
                         ? 'border-rose-400 focus:ring-1 focus:ring-rose-400 bg-rose-50/20'
                         : isPickupValid && touched.pickup
                         ? 'border-emerald-400 focus:ring-1 focus:ring-emerald-400'
-                        : 'border-gray-300 focus:ring-1 focus:ring-[var(--color-luxury-gold)]'
+                        : 'border-slate-200 focus:ring-1 focus:ring-[var(--color-saudi-green)] focus:border-[var(--color-saudi-green)]'
                     }`}
                   />
                   <datalist id="pickup-locations-list">
@@ -741,20 +745,20 @@ export default function BookingWidget({ preselectedVehicleId, onVehicleChange }:
                   </datalist>
                 </div>
                 {touched.pickup && !isPickupValid && (
-                  <span className="text-[10px] text-red-700 font-medium mt-1">{isAr ? 'يرجى إدخال موقع الانطلاق' : 'Please enter a pickup location'}</span>
+                  <span className="text-[10px] text-red-600 font-medium mt-0.5">{isAr ? 'يرجى إدخال موقع الانطلاق' : 'Please enter pickup location'}</span>
                 )}
               </div>
 
               {/* Destination */}
-              <div className="flex flex-col">
+              <div className="flex flex-col min-w-0">
                 <div className="flex justify-between items-center mb-1">
-                  <label className="text-[11px] uppercase font-bold text-gray-900 flex items-center gap-1">
-                    <MapPin size={13} className="text-[var(--color-luxury-gold)]" />
-                    {t('dropoff_location')} *
+                  <label className="text-[11px] uppercase font-bold text-gray-800 flex items-center gap-1.5">
+                    <span className="w-2.5 h-2.5 rounded-full bg-[var(--color-luxury-gold)] ring-2 ring-amber-100 shrink-0" />
+                    <span className="truncate">{t('dropoff_location')} *</span>
                   </label>
                   {isDestinationValid && touched.destination && (
-                    <span className="text-[10px] font-bold text-gray-600 flex items-center gap-0.5">
-                      <CheckCircle2 size={12} /> {isAr ? 'مكتمل' : 'Valid'}
+                    <span className="text-[9px] font-bold text-emerald-600 flex items-center gap-0.5">
+                      <CheckCircle2 size={10} /> {isAr ? 'مكتمل' : 'Valid'}
                     </span>
                   )}
                 </div>
@@ -769,37 +773,37 @@ export default function BookingWidget({ preselectedVehicleId, onVehicleChange }:
                     onBlur={() => setTouched(prev => ({ ...prev, destination: true }))}
                     onChange={(e) => setDestination(e.target.value)}
                     placeholder={isAr ? 'مثال: فندق مكة / الحرم، أبراج الساعة' : 'e.g., Makkah Hotel / Haram, Clock Tower'}
-                    className={`w-full bg-gray-50/40 border p-2.5 rounded-xl text-xs md:text-sm font-medium text-[var(--color-dark-charcoal)] outline-none transition-all ${
+                    className={`w-full bg-white border px-3 py-2 sm:py-1.5 min-h-[38px] rounded-xl text-xs sm:text-sm font-medium text-[var(--color-dark-charcoal)] outline-none transition-all ${
                       touched.destination && !isDestinationValid
                         ? 'border-rose-400 focus:ring-1 focus:ring-rose-400 bg-rose-50/20'
                         : isDestinationValid && touched.destination
                         ? 'border-emerald-400 focus:ring-1 focus:ring-emerald-400'
-                        : 'border-gray-300 focus:ring-1 focus:ring-[var(--color-luxury-gold)]'
+                        : 'border-slate-200 focus:ring-1 focus:ring-[var(--color-saudi-green)] focus:border-[var(--color-saudi-green)]'
                     }`}
                     aria-label={t('dropoff_location')}
-                    aria-invalid={touched.destination && !isDestinationValid ? "true" : "false"}
                   />
                   <datalist id="dropoff-locations-list">
                     {locations.map(l => <option key={l} value={l} />)}
                   </datalist>
                 </div>
                 {touched.destination && !isDestinationValid && (
-                  <span className="text-[10px] text-red-700 font-medium mt-1">{isAr ? 'يرجى إدخال موقع الوصول' : 'Please enter a dropoff location'}</span>
+                  <span className="text-[10px] text-red-600 font-medium mt-0.5">{isAr ? 'يرجى إدخال موقع الوصول' : 'Please enter dropoff location'}</span>
                 )}
               </div>
             </div>
+          </div>
 
-          {/* Vehicle Fleet Selector (Shown if no vehicle is pre-selected, or can be changed) */}
+          {/* Vehicle Fleet Selector (Shown if no vehicle is preselected) */}
           {!selectedVehicleObj && (
             <div className="flex flex-col">
-              <div className="flex justify-between items-center mb-1">
-                <label className="text-[11px] uppercase font-bold text-gray-900 flex items-center gap-1">
-                  <Car size={13} className="text-[var(--color-saudi-green)]" />
-                  {isAr ? 'اختر نوع وموديل السيارة *' : 'Select Vehicle Model *'}
+              <div className="flex justify-between items-center mb-0.5">
+                <label className="text-[11px] uppercase font-bold text-gray-800 flex items-center gap-1">
+                  <Car size={12} className="text-[var(--color-saudi-green)] shrink-0" />
+                  <span>{isAr ? 'اختر نوع وموديل السيارة *' : 'Select Vehicle Model *'}</span>
                 </label>
                 {isVehicleValid && (
-                  <span className="text-[10px] font-bold text-gray-600 flex items-center gap-0.5">
-                    <CheckCircle2 size={12} /> {isAr ? 'تم الاختيار' : 'Selected'}
+                  <span className="text-[9px] font-bold text-emerald-600 flex items-center gap-0.5">
+                    <CheckCircle2 size={10} /> {isAr ? 'تم الاختيار' : 'Selected'}
                   </span>
                 )}
               </div>
@@ -812,43 +816,33 @@ export default function BookingWidget({ preselectedVehicleId, onVehicleChange }:
                   setVehicleId(e.target.value);
                   if (onVehicleChange) onVehicleChange(e.target.value);
                 }}
-                className={`w-full bg-gray-50/40 border p-2.5 rounded-xl text-xs md:text-sm font-semibold text-[var(--color-dark-charcoal)] outline-none transition-all cursor-pointer ${
+                className={`w-full bg-slate-50/70 border px-3 py-2 sm:py-1.5 rounded-xl text-xs sm:text-sm font-semibold text-[var(--color-dark-charcoal)] outline-none transition-all cursor-pointer ${
                   touched.vehicleId && !isVehicleValid
                     ? 'border-rose-400 focus:ring-1 focus:ring-rose-400'
                     : isVehicleValid
                     ? 'border-emerald-400 focus:ring-1 focus:ring-emerald-400'
-                    : 'border-gray-300 focus:ring-1 focus:ring-[var(--color-luxury-gold)]'
+                    : 'border-slate-300 focus:ring-1 focus:ring-[var(--color-luxury-gold)] focus:border-[var(--color-luxury-gold)]'
                 }`}
                 aria-label={isAr ? 'اختر نوع وموديل السيارة' : 'Select Vehicle Model'}
-                aria-invalid={touched.vehicleId && !isVehicleValid ? "true" : "false"}
               >
                 <option value="">{isAr ? '-- اختر موديل السيارة من الأسطول --' : '-- Choose Vehicle Model --'}</option>
                 {vehicles.map(v => (
                   <option key={v.id} value={v.id}>
-                    {v.name} ({isAr ? `حد أقصى ${v.passengerCapacity} ركاب، ${v.luggageCapacity} حقائب` : `Max ${v.passengerCapacity} Pax, ${v.luggageCapacity} Bags`}) — {isAr ? `تبدأ من ${v.startingPrice} ريال` : `From ${v.startingPrice} SAR`}
+                    {v.name} ({v.passengerCapacity} {t('pass')}, {v.luggageCapacity} {t('luggage_short')}) — {isAr ? `تبدأ من ${v.startingPrice} ريال` : `From ${v.startingPrice} SAR`}
                   </option>
                 ))}
               </select>
-
-              
             </div>
           )}
 
           {/* Date, Time, Passengers & Luggage Grid */}
-          <div className="grid grid-cols-2 gap-3 sm:gap-4">
+          <div className="grid grid-cols-2 gap-2 sm:gap-2.5">
             {/* Travel Date */}
             <div className="flex flex-col min-w-0">
-              <div className="flex justify-between items-center mb-1">
-                <label className="text-[11px] uppercase font-bold text-gray-900 flex items-center gap-1">
-                  <Calendar size={12} className="text-[var(--color-saudi-green)] shrink-0" />
-                  <span>{t('travel_date')} *</span>
-                </label>
-                {isDateValid && (
-                  <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-1.5 rounded shrink-0">
-                    ✓
-                  </span>
-                )}
-              </div>
+              <label className="text-[11px] uppercase font-bold text-gray-800 mb-1 flex items-center gap-1 truncate">
+                <Calendar size={12} className="text-[var(--color-saudi-green)] shrink-0" />
+                <span>{t('travel_date')} *</span>
+              </label>
               <input
                 required
                 type="date"
@@ -856,153 +850,192 @@ export default function BookingWidget({ preselectedVehicleId, onVehicleChange }:
                 min={new Date().toISOString().split('T')[0]}
                 onBlur={() => setTouched(prev => ({ ...prev, date: true }))}
                 onChange={(e) => setDate(e.target.value)}
-                className={`w-full min-w-0 bg-gray-50/40 border p-2.5 rounded-xl text-sm font-medium text-[var(--color-dark-charcoal)] outline-none appearance-none ${
-                  touched.date && !isDateValid ? 'border-rose-400' : 'border-gray-300 focus:ring-1 focus:ring-[var(--color-luxury-gold)]'
+                className={`w-full min-w-0 bg-slate-50/80 border px-2.5 py-2 min-h-[40px] rounded-xl text-xs sm:text-sm font-semibold text-[var(--color-dark-charcoal)] outline-none ${
+                  touched.date && !isDateValid ? 'border-rose-400' : 'border-slate-300 focus:ring-1 focus:ring-[var(--color-saudi-green)]'
                 }`}
                 aria-label={t('travel_date')}
-                aria-invalid={touched.date && !isDateValid ? "true" : "false"}
               />
             </div>
 
             {/* Pickup Time */}
             <div className="flex flex-col min-w-0">
-              <div className="flex justify-between items-center mb-1">
-                <label className="text-[11px] uppercase font-bold text-gray-900 flex items-center gap-1">
-                  <Clock size={12} className="text-[var(--color-saudi-green)] shrink-0" />
-                  <span>{t('pickup_time')} *</span>
-                </label>
-                {isTimeValid && (
-                  <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-1.5 rounded shrink-0 whitespace-nowrap">
-                    ✓ {time}
-                  </span>
-                )}
-              </div>
+              <label className="text-[11px] uppercase font-bold text-gray-800 mb-1 flex items-center gap-1 truncate">
+                <Clock size={12} className="text-[var(--color-saudi-green)] shrink-0" />
+                <span>{t('pickup_time')} *</span>
+              </label>
               <input
                 required
                 type="time"
                 value={time}
                 onBlur={() => setTouched(prev => ({ ...prev, time: true }))}
                 onChange={(e) => setTime(e.target.value)}
-                className={`w-full min-w-0 bg-gray-50/40 border p-2.5 rounded-xl text-sm font-medium text-[var(--color-dark-charcoal)] outline-none appearance-none ${
-                  touched.time && !isTimeValid ? 'border-rose-400' : 'border-gray-300 focus:ring-1 focus:ring-[var(--color-luxury-gold)]'
+                className={`w-full min-w-0 bg-slate-50/80 border px-2.5 py-2 min-h-[40px] rounded-xl text-xs sm:text-sm font-semibold text-[var(--color-dark-charcoal)] outline-none ${
+                  touched.time && !isTimeValid ? 'border-rose-400' : 'border-slate-300 focus:ring-1 focus:ring-[var(--color-saudi-green)]'
                 }`}
                 aria-label={t('pickup_time')}
-                aria-invalid={touched.time && !isTimeValid ? "true" : "false"}
               />
             </div>
 
-            {/* Passengers */}
+            {/* Passengers with Stepper */}
             <div className="flex flex-col min-w-0">
-              <div className="flex justify-between items-center mb-1">
-                <label className="text-[11px] uppercase font-bold text-gray-900 flex items-center gap-1">
-                  <Users size={12} className="text-[var(--color-luxury-gold)] shrink-0" />
-                  <span>{t('passengers')} *</span>
-                </label>
-              </div>
-              <div className="flex flex-col gap-1">
+              <label className="text-[11px] uppercase font-bold text-gray-800 mb-1 flex items-center gap-1 truncate">
+                <Users size={12} className="text-[var(--color-luxury-gold)] shrink-0" />
+                <span>{t('passengers')} *</span>
+              </label>
+              <div className={`flex items-center border rounded-xl bg-slate-50/80 overflow-hidden min-h-[40px] ${
+                (isOverCapacity || isZeroPax) ? 'border-rose-400' : 'border-slate-300 focus-within:border-[var(--color-saudi-green)]'
+              }`}>
+                <button
+                  type="button"
+                  onClick={() => setPassengers(prev => Math.max(1, (Number(prev) || 1) - 1))}
+                  className="w-9 sm:w-10 h-10 flex items-center justify-center text-gray-700 hover:bg-slate-200 active:bg-slate-300 font-black text-base select-none shrink-0 cursor-pointer"
+                  aria-label="Decrease passengers"
+                >
+                  −
+                </button>
                 <input
                   required
                   type="number"
-                  min="0"
+                  min="1"
                   max="50"
                   value={passengers}
                   onChange={(e) => {
                     const val = e.target.value;
                     setPassengers(val === '' ? '' : Math.max(0, parseInt(val, 10) || 0));
                   }}
-                  onKeyDown={(e) => {
-                    if (['e', 'E', '+', '-', '.'].includes(e.key)) {
-                      e.preventDefault();
-                    }
-                  }}
-                  className={`w-full min-w-0 bg-gray-50/40 border p-2.5 rounded-xl text-sm font-semibold text-[var(--color-dark-charcoal)] outline-none appearance-none transition-all ${
-                    (isOverCapacity || isZeroPax) ? 'border-rose-400 focus:ring-1 focus:ring-rose-400' : 'border-gray-300 focus:ring-1 focus:ring-[var(--color-luxury-gold)]'
-                  }`}
+                  className="w-full text-center bg-transparent py-1 text-xs sm:text-sm font-black text-[var(--color-dark-charcoal)] outline-none"
                   aria-label={t('passengers')}
                 />
-                {isZeroPax && (
-                  <span className="text-[10px] sm:text-[11px] font-bold text-rose-600 bg-rose-50 p-1.5 rounded-lg border border-rose-100 flex items-start gap-1 leading-tight mt-1">
-                    <AlertCircle size={12} className="shrink-0 mt-0.5" />
-                    {isAr ? 'مطلوب راكب واحد على الأقل' : 'At least 1 passenger is required'}
-                  </span>
-                )}
-                {isOverCapacity && selectedVehicleObj && (
-                  <span className="text-[10px] sm:text-[11px] font-bold text-rose-600 bg-rose-50 p-1.5 rounded-lg border border-rose-100 flex items-start gap-1 leading-tight mt-1">
-                    <AlertCircle size={12} className="shrink-0 mt-0.5" />
-                    {isAr ? `الحد الأقصى ${selectedVehicleObj.passengerCapacity} ركاب لسيارة ${selectedVehicleObj.name}` : `Limit: ${selectedVehicleObj.passengerCapacity} pax for ${selectedVehicleObj.name}`}
-                  </span>
-                )}
+                <button
+                  type="button"
+                  onClick={() => setPassengers(prev => Math.min(50, (Number(prev) || 0) + 1))}
+                  className="w-9 sm:w-10 h-10 flex items-center justify-center text-gray-700 hover:bg-slate-200 active:bg-slate-300 font-black text-base select-none shrink-0 cursor-pointer"
+                  aria-label="Increase passengers"
+                >
+                  +
+                </button>
               </div>
             </div>
 
-            {/* Luggage */}
+            {/* Luggage with Stepper */}
             <div className="flex flex-col min-w-0">
-              <div className="flex justify-between items-center mb-1">
-                <label className="text-[11px] uppercase font-bold text-gray-900 flex items-center gap-1">
-                  <Briefcase size={12} className="text-[var(--color-luxury-gold)] shrink-0" />
-                  <span>{t('luggage')}</span>
-                </label>
+              <label className="text-[11px] uppercase font-bold text-gray-800 mb-1 flex items-center gap-1 truncate">
+                <Briefcase size={12} className="text-[var(--color-luxury-gold)] shrink-0" />
+                <span>{t('luggage')}</span>
+              </label>
+              <div className="flex items-center border border-slate-300 rounded-xl bg-slate-50/80 overflow-hidden min-h-[40px] focus-within:border-[var(--color-saudi-green)]">
+                <button
+                  type="button"
+                  onClick={() => setLuggage(prev => Math.max(0, (Number(prev) || 0) - 1))}
+                  className="w-9 sm:w-10 h-10 flex items-center justify-center text-gray-700 hover:bg-slate-200 active:bg-slate-300 font-black text-base select-none shrink-0 cursor-pointer"
+                  aria-label="Decrease luggage"
+                >
+                  −
+                </button>
+                <input
+                  type="number"
+                  min="0"
+                  max="50"
+                  value={luggage}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setLuggage(val === '' ? '' : Math.max(0, parseInt(val, 10) || 0));
+                  }}
+                  className="w-full text-center bg-transparent py-1 text-xs sm:text-sm font-black text-[var(--color-dark-charcoal)] outline-none"
+                  aria-label={t('luggage')}
+                />
+                <button
+                  type="button"
+                  onClick={() => setLuggage(prev => Math.min(50, (Number(prev) || 0) + 1))}
+                  className="w-9 sm:w-10 h-10 flex items-center justify-center text-gray-700 hover:bg-slate-200 active:bg-slate-300 font-black text-base select-none shrink-0 cursor-pointer"
+                  aria-label="Increase luggage"
+                >
+                  +
+                </button>
               </div>
-              <input
-                type="number"
-                min="0"
-                max="50"
-                value={luggage}
-                onChange={(e) => {
-                  const val = e.target.value;
-                  setLuggage(val === '' ? '' : Math.max(0, parseInt(val, 10) || 0));
-                }}
-                onKeyDown={(e) => {
-                  if (['e', 'E', '+', '-', '.'].includes(e.key)) {
-                    e.preventDefault();
-                  }
-                }}
-                className="w-full min-w-0 bg-gray-50/40 border border-gray-300 p-2.5 rounded-xl text-sm font-semibold text-[var(--color-dark-charcoal)] outline-none appearance-none focus:ring-1 focus:ring-[var(--color-luxury-gold)]"
-                aria-label={t('luggage')}
-              />
             </div>
           </div>
 
+          {/* Validation Warnings */}
+          {isOverCapacity && selectedVehicleObj && (
+            <div className="text-[10px] font-bold text-rose-700 bg-rose-50 p-2.5 rounded-xl border border-rose-200 flex items-center gap-1.5 leading-tight">
+              <AlertCircle size={13} className="shrink-0" />
+              <span>{isAr ? `الحد الأقصى ${selectedVehicleObj.passengerCapacity} ركاب لسيارة ${selectedVehicleObj.name}` : `Limit: ${selectedVehicleObj.passengerCapacity} pax for ${selectedVehicleObj.name}`}</span>
+            </div>
+          )}
+
+          {/* Live Estimated Price Bar in Step 1 */}
+          {priceCalculation.isMatched && (
+            <div className="flex items-center justify-between px-3 py-2.5 bg-gradient-to-r from-emerald-50 to-emerald-100/70 border border-emerald-200/90 rounded-xl">
+              <div className="flex items-center gap-1.5">
+                <Sparkles size={14} className="text-[var(--color-saudi-green)]" />
+                <div>
+                  <span className="text-[11px] font-bold text-emerald-950 block leading-tight">
+                    {isAr ? 'السعر التقديري المباشر:' : 'Estimated Fare:'}
+                  </span>
+                  <span className="text-[9px] text-emerald-800/80 hidden sm:block">
+                    {isAr ? 'شامل الوقود، رسوم الطرق والاستقبال' : 'Includes fuel, tolls & greeting'}
+                  </span>
+                </div>
+              </div>
+              <span className="text-xs sm:text-sm font-black text-[var(--color-saudi-green)] whitespace-nowrap">
+                {priceCalculation.rangeFormatted}
+              </span>
+            </div>
+          )}
+
           {/* Submit Button to Step 2 */}
-          <button
-            type="submit"
-            className="w-full bg-[var(--color-saudi-green)] hover:bg-[var(--color-saudi-emerald)] text-white py-3.5 px-6 rounded-xl font-bold text-sm transition-all shadow-lg flex items-center justify-center gap-2 hover:scale-[1.01] active:scale-[0.99] cursor-pointer"
-          >
-            <span>{t('proceed_guest_details')}</span>
-            <ArrowRight size={16} className="rtl:rotate-180" />
-          </button>
+          <div className="flex">
+            <button
+              type="submit"
+              className="w-full bg-[var(--color-saudi-green)] hover:bg-[var(--color-saudi-emerald)] text-white min-h-[44px] sm:min-h-[48px] py-2.5 sm:py-3 px-5 rounded-xl font-bold text-xs sm:text-sm transition-all shadow-md flex items-center justify-center gap-2 hover:scale-[1.01] active:scale-[0.99] cursor-pointer"
+            >
+              <span>{t('proceed_guest_details')}</span>
+              <ArrowRight size={14} className="rtl:rotate-180" />
+            </button>
+          </div>
         </form>
       )}
 
       {/* STEP 2: GUEST DETAILS & DISPATCH */}
       {step === 2 && (
-        <form onSubmit={handleFinalSubmit} className="space-y-4 animate-in fade-in slide-in-from-left-3 duration-300">
-          <div className="bg-gray-50/50 border border-gray-300 rounded-2xl p-4 mb-4">
-            <div className="flex justify-between items-center border-b border-gray-300 pb-2 mb-2">
-              <span className="text-sm font-bold text-[var(--color-dark-charcoal)] uppercase">{isAr ? 'ملخص مسار الرحلة' : 'Journey Overview'}</span>
+        <form onSubmit={handleFinalSubmit} className="space-y-2.5 sm:space-y-3 animate-in fade-in duration-200">
+          <div className="bg-slate-50/90 border border-slate-200 rounded-xl p-2.5 sm:p-3">
+            <div className="flex justify-between items-center border-b border-slate-200/90 pb-1.5 mb-1.5">
+              <span className="text-[11px] font-bold text-[var(--color-dark-charcoal)] uppercase tracking-wider">{isAr ? 'ملخص مسار الرحلة' : 'Journey Overview'}</span>
               <button
                 type="button"
                 onClick={() => setStep(1)}
-                className="text-xs text-[var(--color-saudi-green)] font-bold hover:underline cursor-pointer"
+                className="text-[11px] text-[var(--color-saudi-green)] font-bold hover:underline cursor-pointer"
               >
                 {t('back_to_journey')}
               </button>
             </div>
             <div className="text-xs text-[var(--color-dark-charcoal)]/80 space-y-1">
-              <p><strong>{isAr ? 'المسار:' : 'Route:'}</strong> {pickup} ➔ {destination}</p>
-              <p><strong>{isAr ? 'الموعد:' : 'When:'}</strong> {date} {isAr ? 'في تمام' : 'at'} {time}</p>
-              <p><strong>{isAr ? 'السيارة:' : 'Vehicle:'}</strong> {selectedVehicleObj?.name || 'VIP Vehicle'} ({passengers} {t('pass')}, {luggage} {t('luggage_short')})</p>
-              <p className="text-[var(--color-saudi-green)] font-extrabold text-sm pt-1">
-                <strong>{isAr ? 'السعر التقديري:' : 'Fare:'}</strong> {priceCalculation.rangeFormatted}
-              </p>
+              <div className="flex justify-between items-center">
+                <span className="text-gray-500 font-medium">{isAr ? 'المسار:' : 'Route:'}</span>
+                <span className="font-bold text-right rtl:text-left truncate max-w-[210px]">{pickup} ➔ {destination}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-gray-500 font-medium">{isAr ? 'الموعد:' : 'When:'}</span>
+                <span className="font-semibold">{date} {time ? `(${time})` : ''}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-gray-500 font-medium">{isAr ? 'السيارة:' : 'Vehicle:'}</span>
+                <span className="font-semibold truncate max-w-[210px]">{selectedVehicleObj?.name || 'VIP Car'} • {passengers} {t('pass')}</span>
+              </div>
+              <div className="flex justify-between items-center pt-1.5 border-t border-slate-200/90">
+                <span className="font-bold text-gray-800">{isAr ? 'السعر التقديري:' : 'Fare:'}</span>
+                <span className="text-xs sm:text-sm font-black text-[var(--color-saudi-green)]">{priceCalculation.rangeFormatted}</span>
+              </div>
             </div>
           </div>
 
           {/* Guest Name */}
           <div className="flex flex-col">
-            <label className="text-[11px] uppercase font-bold text-gray-900 mb-1 flex items-center gap-1">
-              <User size={12} className="text-[var(--color-saudi-green)]" />
-              {t('guest_name')} *
+            <label className="text-[11px] uppercase font-bold text-gray-800 mb-0.5 flex items-center gap-1">
+              <User size={11} className="text-[var(--color-saudi-green)]" />
+              <span>{t('guest_name')} *</span>
             </label>
             <input
               required
@@ -1011,19 +1044,18 @@ export default function BookingWidget({ preselectedVehicleId, onVehicleChange }:
               onBlur={() => setTouched(prev => ({ ...prev, customerName: true }))}
               onChange={(e) => setCustomerName(e.target.value)}
               placeholder={t('guest_name_placeholder')}
-              className={`w-full bg-gray-50/40 border p-2.5 rounded-xl text-xs md:text-sm font-medium text-[var(--color-dark-charcoal)] outline-none ${
-                touched.customerName && !isNameValid ? 'border-rose-400' : 'border-gray-300 focus:ring-1 focus:ring-[var(--color-luxury-gold)]'
+              className={`w-full bg-slate-50/70 border px-3 py-2 sm:py-1.5 rounded-xl text-xs sm:text-sm font-medium text-[var(--color-dark-charcoal)] outline-none ${
+                touched.customerName && !isNameValid ? 'border-rose-400' : 'border-slate-300 focus:ring-1 focus:ring-[var(--color-luxury-gold)]'
               }`}
               aria-label={t('guest_name')}
-              aria-invalid={touched.customerName && !isNameValid ? "true" : "false"}
             />
           </div>
 
           {/* WhatsApp / Phone */}
           <div className="flex flex-col">
-            <label className="text-[11px] uppercase font-bold text-gray-900 mb-1 flex items-center gap-1">
-              <Phone size={12} className="text-[var(--color-saudi-green)]" />
-              {t('phone_whatsapp')} *
+            <label className="text-[11px] uppercase font-bold text-gray-800 mb-0.5 flex items-center gap-1">
+              <Phone size={11} className="text-[var(--color-saudi-green)]" />
+              <span>{t('phone_whatsapp')} *</span>
             </label>
             <input
               required
@@ -1032,54 +1064,53 @@ export default function BookingWidget({ preselectedVehicleId, onVehicleChange }:
               onBlur={() => setTouched(prev => ({ ...prev, phone: true }))}
               onChange={(e) => setPhone(e.target.value)}
               placeholder={t('phone_placeholder')}
-              className={`w-full bg-gray-50/40 border p-2.5 rounded-xl text-xs md:text-sm font-medium text-[var(--color-dark-charcoal)] outline-none ${
-                touched.phone && !isPhoneValid ? 'border-rose-400' : 'border-gray-300 focus:ring-1 focus:ring-[var(--color-luxury-gold)]'
+              className={`w-full bg-slate-50/70 border px-3 py-2 sm:py-1.5 rounded-xl text-xs sm:text-sm font-medium text-[var(--color-dark-charcoal)] outline-none ${
+                touched.phone && !isPhoneValid ? 'border-rose-400' : 'border-slate-300 focus:ring-1 focus:ring-[var(--color-luxury-gold)]'
               }`}
               aria-label={t('phone_whatsapp')}
-              aria-invalid={touched.phone && !isPhoneValid ? "true" : "false"}
             />
-            <span className="text-[10px] text-gray-700 mt-1">
-              {isAr ? 'سيصلك تأكيد الحجز ورقم السائق عبر هذا الرقم على الواتساب' : 'Driver details and live tracking link will be sent to this WhatsApp number'}
+            <span className="text-[9px] text-gray-600 mt-0.5">
+              {isAr ? 'سيصلك تأكيد الحجز ورقم السائق عبر هذا الرقم على الواتساب' : 'Driver details will be dispatched to this WhatsApp number'}
             </span>
           </div>
 
           {/* Email (Optional) */}
           <div className="flex flex-col">
-            <label className="text-[11px] uppercase font-bold text-gray-900 mb-1 flex items-center gap-1">
-              <Mail size={12} className="text-[var(--color-luxury-gold)]" />
-              {t('email_optional')}
+            <label className="text-[11px] uppercase font-bold text-gray-800 mb-0.5 flex items-center gap-1">
+              <Mail size={11} className="text-[var(--color-luxury-gold)]" />
+              <span>{t('email_optional')}</span>
             </label>
             <input
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder={t('email_placeholder')}
-              className="w-full bg-gray-50/40 border border-gray-300 p-2.5 rounded-xl text-xs md:text-sm font-medium text-[var(--color-dark-charcoal)] outline-none focus:ring-1 focus:ring-[var(--color-luxury-gold)]"
+              className="w-full bg-slate-50/70 border border-slate-300 px-3 py-2 sm:py-1.5 rounded-xl text-xs sm:text-sm font-medium text-[var(--color-dark-charcoal)] outline-none focus:ring-1 focus:ring-[var(--color-luxury-gold)]"
               aria-label={t('email_optional')}
             />
           </div>
 
           {/* Special Requests / Flight Number */}
           <div className="flex flex-col">
-            <label className="text-[11px] uppercase font-bold text-gray-900 mb-1 flex items-center gap-1">
-              <FileText size={12} className="text-[var(--color-luxury-gold)]" />
-              {t('special_request')}
+            <label className="text-[11px] uppercase font-bold text-gray-800 mb-0.5 flex items-center gap-1">
+              <FileText size={11} className="text-[var(--color-luxury-gold)]" />
+              <span>{t('special_request')}</span>
             </label>
             <textarea
               rows={2}
               value={specialRequest}
               onChange={(e) => setSpecialRequest(e.target.value)}
               placeholder={t('special_request_placeholder')}
-              className="w-full bg-gray-50/40 border border-gray-300 p-2.5 rounded-xl text-xs md:text-sm font-medium text-[var(--color-dark-charcoal)] outline-none focus:ring-1 focus:ring-[var(--color-luxury-gold)] resize-none"
+              className="w-full bg-slate-50/70 border border-slate-300 px-3 py-1.5 rounded-xl text-xs sm:text-sm font-medium text-[var(--color-dark-charcoal)] outline-none focus:ring-1 focus:ring-[var(--color-luxury-gold)] resize-none"
               aria-label={t('special_request')}
             />
           </div>
 
-          <div className="flex gap-3 pt-2">
+          <div className="flex gap-2 pt-1">
             <button
               type="button"
               onClick={() => setStep(1)}
-              className="px-4 py-3.5 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-xl text-xs font-bold transition-colors cursor-pointer"
+              className="px-3.5 py-2.5 sm:py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs sm:text-xs font-bold transition-colors cursor-pointer"
             >
               {isAr ? 'رجوع' : 'Back'}
             </button>
@@ -1087,14 +1118,14 @@ export default function BookingWidget({ preselectedVehicleId, onVehicleChange }:
             <button
               type="submit"
               disabled={loading}
-              className="flex-1 bg-[var(--color-saudi-green)] hover:bg-[var(--color-saudi-emerald)] text-white py-3.5 px-6 rounded-xl font-bold text-sm transition-all shadow-lg flex items-center justify-center gap-2 hover:scale-[1.01] active:scale-[0.99] disabled:opacity-50 cursor-pointer"
+              className="flex-1 bg-[var(--color-saudi-green)] hover:bg-[var(--color-saudi-emerald)] text-white py-2.5 sm:py-2.5 px-4 rounded-xl font-bold text-xs sm:text-sm transition-all shadow-md flex items-center justify-center gap-1.5 hover:scale-[1.01] active:scale-[0.99] disabled:opacity-50 cursor-pointer"
             >
               {loading ? (
-                <span>{isAr ? 'جاري تجهيز الحجز...' : 'Processing Dispatch...'}</span>
+                <span>{isAr ? 'جاري التجهيز...' : 'Processing...'}</span>
               ) : (
                 <>
                   <span>{t('confirm_booking')}</span>
-                  <CheckCircle2 size={16} />
+                  <CheckCircle2 size={15} />
                 </>
               )}
             </button>

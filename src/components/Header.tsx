@@ -5,13 +5,16 @@ import { useSiteSettings } from '../context/SiteSettingsContext';
 import { 
   Menu, X, Phone, User, ChevronDown, ChevronRight, Home, 
   Car, MapPin, Sparkles, Compass, Info, HelpCircle, Mail, 
-  FileText, Shield, Calendar, MessageSquare, Globe, ArrowRight
+  FileText, Shield, Calendar, MessageSquare, Globe, ArrowRight,
+  Search
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import clsx from 'clsx';
 import { useAuth } from '../context/AuthContext';
 import { useWhatsApp } from '../hooks/useWhatsApp';
+import { useBookingTracker } from '../context/BookingTrackerContext';
 import BrandLogo from './BrandLogo';
+import LanguageSwitcher from './LanguageSwitcher';
 
 export default function Header() {
   const { companyName } = useSiteSettings();
@@ -19,6 +22,7 @@ export default function Header() {
   const isAr = i18n.language === 'ar';
   const { user } = useAuth();
   const { openWhatsApp } = useWhatsApp();
+  const { openTracker } = useBookingTracker();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [companyDropdownOpen, setCompanyDropdownOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
@@ -100,8 +104,19 @@ export default function Header() {
               </span>
             </div>
 
-            {/* Right: Quick contact hotline & WhatsApp */}
-            <div className="flex items-center gap-4">
+            {/* Right: Quick contact hotline & WhatsApp + Track Booking button */}
+            <div className="flex items-center gap-3 xl:gap-4">
+              <button
+                type="button"
+                onClick={() => openTracker()}
+                className="flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-amber-400/20 hover:bg-amber-400/30 text-amber-200 hover:text-white border border-amber-400/35 transition-all text-[11px] font-bold cursor-pointer"
+                title={isAr ? 'الاستعلام اللحظي عن حالة الحجز' : 'Instant booking status tracker'}
+              >
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-ping" />
+                <Search size={11} className="text-amber-300" />
+                <span>{isAr ? 'تتبع حالة الحجز' : 'Track Booking'}</span>
+              </button>
+
               <a 
                 href="https://wa.me/966576124752"
                 target="_blank"
@@ -204,15 +219,7 @@ export default function Header() {
             {/* Laptop & Desktop Right Action Cluster */}
             <div className="hidden lg:flex items-center gap-1.5 xl:gap-2 shrink-0">
               {/* Language Switcher */}
-              <button 
-                type="button"
-                onClick={toggleLanguage}
-                className="text-sm font-bold px-2 xl:px-2.5 py-1.5 rounded-xl border border-gray-200 text-gray-700 hover:border-[#05513F] hover:text-[#05513F] hover:bg-emerald-50/50 transition-all cursor-pointer flex items-center gap-1 shadow-2xs active:scale-95"
-                aria-label={i18n.language === 'en' ? 'Switch to Arabic' : 'Switch to English'}
-              >
-                <Globe size={13} className="text-emerald-700 shrink-0" />
-                <span className="whitespace-nowrap font-sans">{i18n.language === 'en' ? 'العربية' : 'English'}</span>
-              </button>
+              <LanguageSwitcher variant="pill" />
 
               {/* User Dashboard / Login */}
               {user ? (
@@ -247,25 +254,29 @@ export default function Header() {
             </div>
 
             {/* Mobile Controls (< 1024px) */}
-            <div className="flex items-center gap-2 lg:hidden">
+            <div className="flex items-center gap-1.5 sm:gap-2 lg:hidden">
+              {/* Mobile Track Button */}
               <button 
                 type="button"
-                onClick={toggleLanguage}
-                className="text-xs font-black px-2.5 py-1.5 rounded-lg border border-emerald-300/80 bg-emerald-50 text-[#05513F] hover:bg-emerald-100 transition-colors flex items-center gap-1 cursor-pointer"
-                aria-label="Toggle language"
+                onClick={() => openTracker()}
+                className="text-xs font-bold px-2 sm:px-2.5 py-1.5 rounded-lg border border-emerald-300/80 bg-emerald-50 text-[#05513F] hover:bg-emerald-100 transition-colors flex items-center gap-1 cursor-pointer shadow-2xs"
+                aria-label={t('track_booking')}
+                title={t('track_booking')}
               >
-                <Globe size={13} className="text-[#05513F]" />
-                <span>{i18n.language === 'en' ? 'عربي' : 'EN'}</span>
+                <Search size={13} className="text-[#05513F]" />
+                <span className="hidden xs:inline">{isAr ? 'حالة الحجز' : 'Track'}</span>
               </button>
+
+              <LanguageSwitcher variant="compact" />
 
               <button 
                 type="button"
-                className="w-11 h-11 flex items-center justify-center text-gray-900 bg-gray-100 hover:bg-emerald-50 active:scale-95 rounded-xl border border-gray-200 transition-all cursor-pointer select-none"
+                className="w-10 h-10 sm:w-11 sm:h-11 flex items-center justify-center text-gray-900 bg-gray-100 hover:bg-emerald-50 active:scale-95 rounded-xl border border-gray-200 transition-all cursor-pointer select-none"
                 onClick={() => setMobileMenuOpen(true)}
                 aria-expanded={mobileMenuOpen}
                 aria-label="Open mobile navigation menu"
               >
-                <Menu size={24} className="text-gray-900 stroke-[2.5]" aria-hidden="true" />
+                <Menu size={22} className="text-gray-900 stroke-[2.5]" aria-hidden="true" />
               </button>
             </div>
           </div>
@@ -302,14 +313,7 @@ export default function Header() {
                 </Link>
 
                 <div className="flex items-center gap-2">
-                  <button 
-                    type="button"
-                    onClick={toggleLanguage}
-                    className="text-xs font-black px-3 py-1.5 rounded-xl border border-emerald-200 bg-emerald-50 text-[#05513F] flex items-center gap-1.5 cursor-pointer shadow-2xs"
-                  >
-                    <Globe size={14} />
-                    <span>{i18n.language === 'en' ? 'العربية' : 'English'}</span>
-                  </button>
+                  <LanguageSwitcher variant="compact" />
 
                   <button 
                     type="button"
@@ -362,6 +366,29 @@ export default function Header() {
                       </Link>
                     </div>
                   )}
+                </div>
+
+                {/* Instant Track Booking Card in Mobile Drawer */}
+                <div className="p-3.5 bg-gradient-to-r from-emerald-50 via-emerald-100/40 to-amber-50/50 rounded-2xl border border-emerald-200/90 shadow-2xs flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-9 h-9 rounded-xl bg-[#05513F] text-amber-300 flex items-center justify-center shrink-0 shadow-xs">
+                      <Search size={16} />
+                    </div>
+                    <div>
+                      <div className="text-[10px] font-extrabold text-emerald-800 uppercase tracking-wider">{isAr ? 'الاستعلام اللحظي' : 'Live Status Checker'}</div>
+                      <div className="text-xs font-black text-gray-900">{isAr ? 'تتبع حالة الحجز والسائق' : 'Track Booking & Driver'}</div>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMobileMenuOpen(false);
+                      openTracker();
+                    }}
+                    className="px-3.5 py-2 bg-[#05513F] hover:bg-emerald-800 active:scale-95 text-white text-xs font-black rounded-xl shadow-xs shrink-0 cursor-pointer transition-all"
+                  >
+                    {isAr ? 'استعلام' : 'Check'}
+                  </button>
                 </div>
 
                 {/* Primary Nav Links */}
