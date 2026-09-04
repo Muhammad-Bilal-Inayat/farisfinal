@@ -30,6 +30,7 @@ import { motion } from 'motion/react';
 import PageCustomRenderer from '../components/PageCustomRenderer';
 import TestimonialSlider from '../components/TestimonialSlider';
 import { getVehicleImageByName } from '../utils/imageUtils';
+import { useVehiclesSnapshot } from '../hooks/useVehiclesSnapshot';
 
 const getVehicleImage = (name: string) => {
   return getVehicleImageByName(name);
@@ -178,20 +179,19 @@ export default function Home() {
   };
 
   useEffect(() => {
-    fetch('/api/vehicles')
-      .then(res => res.json())
-      .then(data => {
-        if (Array.isArray(data)) {
-          setVehicles(data.filter((v: any) => v.status !== 'archived'));
-        }
-      })
-      .catch(console.error);
-
     fetch('/api/testimonials')
       .then(res => res.json())
       .then(data => setTestimonials(data))
       .catch(console.error);
   }, [vehicleVersion]);
+
+  const snapshotVehicles = useVehiclesSnapshot();
+
+  useEffect(() => {
+    if (snapshotVehicles) {
+      setVehicles(snapshotVehicles.filter((v: any) => v.status !== 'archived'));
+    }
+  }, [snapshotVehicles]);
 
   return (
     <div className="bg-white text-[var(--color-dark-charcoal)] flex flex-col">

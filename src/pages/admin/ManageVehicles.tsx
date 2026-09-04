@@ -7,6 +7,7 @@ import {
 import { useTranslation } from 'react-i18next';
 import { getVehicleImageByName } from '../../utils/imageUtils';
 import { useBookingTracker } from '../../context/BookingTrackerContext';
+import VehicleSyncMonitor from './components/VehicleSyncMonitor';
 
 // Standard high-res Umrah fleet preset library for quick selection
 const FLEET_PRESETS = [
@@ -457,6 +458,8 @@ export default function ManageVehicles() {
 
   return (
     <div className="space-y-6">
+      <VehicleSyncMonitor />
+      
       {/* Toast Notification */}
       {toast && (
         <div className={`p-4 rounded-xl text-white shadow-xl flex items-center justify-between text-sm font-bold animate-fade-in fixed bottom-6 right-6 z-50 max-w-md ${

@@ -26,6 +26,7 @@ import {
 import { useAuth } from '../context/AuthContext';
 import { useSiteSettings } from '../context/SiteSettingsContext';
 import { useWhatsApp } from '../hooks/useWhatsApp';
+import { useVehiclesSnapshot } from '../hooks/useVehiclesSnapshot';
 import { useBookingTracker } from '../context/BookingTrackerContext';
 import { getVehicleImageByName } from '../utils/imageUtils';
 
@@ -138,28 +139,30 @@ export default function BookingWidget({ preselectedVehicleId, onVehicleChange }:
     }
   }, [user]);
 
+  const snapshotVehicles = useVehiclesSnapshot();
+
   // Fetch vehicles and routes
   useEffect(() => {
-    fetch('/api/vehicles')
-      .then(res => res.json())
-      .then(data => {
-        setVehicles(data);
+    if (snapshotVehicles && snapshotVehicles.length > 0) {
+      const data = snapshotVehicles;
+      setVehicles(data);
 
-        // Check if query params specify vehicle
-        const queryVeh = searchParams.get('vehicle') || searchParams.get('car') || searchParams.get('model') || searchParams.get('vehicleId');
-        if (queryVeh) {
-          const matched = data.find((v: any) => 
-            String(v.id) === queryVeh || 
-            v.name.toLowerCase().includes(queryVeh.toLowerCase())
-          );
-          if (matched) {
-            setVehicleId(String(matched.id));
-            if (onVehicleChange) onVehicleChange(String(matched.id));
-          }
+      // Check if query params specify vehicle
+      const queryVeh = searchParams.get('vehicle') || searchParams.get('car') || searchParams.get('model') || searchParams.get('vehicleId');
+      if (queryVeh) {
+        const matched = data.find((v: any) => 
+          String(v.id) === queryVeh || 
+          v.name.toLowerCase().includes(queryVeh.toLowerCase())
+        );
+        if (matched) {
+          setVehicleId(String(matched.id));
+          if (onVehicleChange) onVehicleChange(String(matched.id));
         }
-      })
-      .catch(console.error);
+      }
+    }
+  }, [snapshotVehicles, searchParams, onVehicleChange]);
       
+  useEffect(() => {
     fetch('/api/routes')
       .then(res => res.json())
       .then(data => {

@@ -16,6 +16,8 @@ import {
 } from '../data/fleetRoutesData';
 import { getVehicleImageByName } from '../utils/imageUtils';
 
+import { useVehiclesSnapshot } from '../hooks/useVehiclesSnapshot';
+
 export default function RoutesRates() {
   const { t, i18n } = useTranslation();
   const isAr = i18n.language === 'ar';
@@ -46,9 +48,13 @@ export default function RoutesRates() {
     }
   }, [searchParams]);
 
+  const snapshotVehicles = useVehiclesSnapshot();
+
   const loadPublicRoutesAndVehicles = () => {
+    if (!snapshotVehicles || snapshotVehicles.length === 0) return;
+    
     Promise.all([
-      fetch('/api/vehicles', { cache: 'no-store' }).then(r => r.json()),
+      Promise.resolve(snapshotVehicles),
       fetch('/api/routes', { cache: 'no-store' }).then(r => r.json())
     ]).then(([vehicles, routes]) => {
       if (Array.isArray(vehicles) && Array.isArray(routes)) {
@@ -117,7 +123,7 @@ export default function RoutesRates() {
       window.removeEventListener('faris_routes_updated', handleSync);
       window.removeEventListener('faris_vehicles_updated', handleSync);
     };
-  }, []);
+  }, [snapshotVehicles]);
 
   const handlePillClick = (pill: QuickRoutePill) => {
     if (selectedPillId === pill.id) {

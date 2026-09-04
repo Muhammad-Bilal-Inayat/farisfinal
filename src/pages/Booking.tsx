@@ -9,6 +9,7 @@ import { useTranslation } from 'react-i18next';
 import Breadcrumbs from '../components/Breadcrumbs';
 import PageCustomRenderer from '../components/PageCustomRenderer';
 import { getVehicleImageByName } from '../utils/imageUtils';
+import { useVehiclesSnapshot } from '../hooks/useVehiclesSnapshot';
 
 export default function Booking() {
   const { companyName } = useSiteSettings();
@@ -17,25 +18,25 @@ export default function Booking() {
   const [searchParams] = useSearchParams();
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [selectedVehicleId, setSelectedVehicleId] = useState<string>('');
+  
+  const snapshotVehicles = useVehiclesSnapshot();
 
   useEffect(() => {
-    fetch('/api/vehicles')
-      .then(res => res.json())
-      .then(data => {
-        setVehicles(data);
-        const queryVehicle = searchParams.get('vehicle') || searchParams.get('car') || searchParams.get('model');
-        if (queryVehicle) {
-          const matched = data.find((v: any) => 
-            String(v.id) === queryVehicle || 
-            v.name.toLowerCase().includes(queryVehicle.toLowerCase())
-          );
-          if (matched) {
-            setSelectedVehicleId(String(matched.id));
-          }
+    if (snapshotVehicles && snapshotVehicles.length > 0) {
+      const data = snapshotVehicles;
+      setVehicles(data);
+      const queryVehicle = searchParams.get('vehicle') || searchParams.get('car') || searchParams.get('model');
+      if (queryVehicle) {
+        const matched = data.find((v: any) => 
+          String(v.id) === queryVehicle || 
+          v.name.toLowerCase().includes(queryVehicle.toLowerCase())
+        );
+        if (matched) {
+          setSelectedVehicleId(String(matched.id));
         }
-      })
-      .catch(console.error);
-  }, [searchParams]);
+      }
+    }
+  }, [snapshotVehicles, searchParams]);
 
   const handleSelectCar = (id: string) => {
     setSelectedVehicleId(id);

@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Link, useSearchParams } from 'react-router-dom';
+import { useVehiclesSnapshot } from '../hooks/useVehiclesSnapshot';
 import { Helmet } from 'react-helmet-async';
 import { useSiteSettings } from '../context/SiteSettingsContext';
 import { useBookingTracker } from '../context/BookingTrackerContext';
@@ -84,24 +85,24 @@ export default function Vehicles() {
 
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [loading, setLoading] = useState(true);
-
+  
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
 
   const carParam = searchParams.get('car');
+  
+  const snapshotVehicles = useVehiclesSnapshot();
 
   useEffect(() => {
-    fetch('/api/vehicles')
-      .then(res => res.json())
-      .then((data) => {
-        setVehicles(data);
-        setLoading(false);
-      })
-      .catch((error) => {
-        console.error('Failed to load vehicles', error);
-        setLoading(false);
-      });
-  }, [vehicleVersion]);
+    if (snapshotVehicles && snapshotVehicles.length > 0) {
+      setVehicles(snapshotVehicles);
+      setLoading(false);
+    } else if (snapshotVehicles.length === 0) {
+      // Timeout to show empty state if truly empty
+      const t = setTimeout(() => setLoading(false), 1000);
+      return () => clearTimeout(t);
+    }
+  }, [snapshotVehicles]);
 
   const categories = [
     { id: 'all', label: isAr ? 'عرض الكل' : 'All Fleet' },
