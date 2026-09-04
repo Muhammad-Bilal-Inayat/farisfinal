@@ -1088,39 +1088,16 @@ async function startServer() {
 
   app.post("/api/testimonials", async (req, res) => {
     try {
-      const { customerName, location, text, rating, bookingId } = req.body;
-      if (!customerName || !text || !bookingId) {
-        return res.status(400).json({ error: "Customer name, review text, and Booking ID are required. (You can only submit reviews for your completed bookings)." });
+      const { customerName, location, text, rating } = req.body;
+      if (!customerName || !text) {
+        return res.status(400).json({ error: "Customer name and review text are required." });
       }
 
-      const rawBookingId = bookingId.trim();
-
-      // Fast indexed lookup to verify booking exists
-      let foundBooking = await db.select().from(bookings).where(eq(bookings.bookingId, rawBookingId)).all();
-      if (!foundBooking || foundBooking.length === 0) {
-        foundBooking = await db.select().from(bookings).where(eq(bookings.bookingId, rawBookingId.toUpperCase())).all();
-      }
-
-      if (!foundBooking || foundBooking.length === 0) {
-        return res.status(400).json({ error: "Invalid Booking ID. Please enter a valid booking order ID to submit a review." });
-      }
-
-      // Check how many reviews already submitted for this booking ID (Limit: 1 review per order)
-      const existingReviewsForBooking = await db.select().from(testimonials).where(
-        sql`LOWER(${testimonials.bookingId}) = LOWER(${rawBookingId})`
-      ).all();
-
-      if (existingReviewsForBooking.length >= 1) {
-        return res.status(400).json({ error: "You have already submitted a review for this booking order. (Limit: 1 review per order)" });
-      }
-
-      const booking = foundBooking[0];
       const [inserted] = await db.insert(testimonials).values({
         customerName,
-        location: location || `${booking.pickup} ➔ ${booking.destination}`,
+        location: location || '',
         text,
         rating: Number(rating) || 5,
-        bookingId: booking.bookingId,
         status: 'pending', // Requires admin approval before appearing publicly
         displayOrder: 0
       }).returning();

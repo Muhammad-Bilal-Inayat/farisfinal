@@ -21,12 +21,16 @@ import {
   Calendar,
   ChevronDown,
   ExternalLink,
-  Lock
+  Lock,
+  Download
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useSiteSettings } from '../context/SiteSettingsContext';
 import Breadcrumbs from '../components/Breadcrumbs';
 import { Link } from 'react-router-dom';
+import { QRCodeCanvas } from 'qrcode.react';
+import { motion } from 'motion/react';
+import { useReviewsSnapshot } from '../hooks/useReviewsSnapshot';
 
 interface ReviewItem {
   id: number;
@@ -60,8 +64,10 @@ export default function Reviews() {
   const { companyName } = useSiteSettings();
   const { user } = useAuth();
 
-  const [reviews, setReviews] = useState<ReviewItem[]>([]);
-  const [loading, setLoading] = useState(true);
+  const rawReviews = useReviewsSnapshot();
+  const reviews = Array.isArray(rawReviews) ? rawReviews : [];
+  
+  const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [successMsg, setSuccessMsg] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
@@ -70,6 +76,9 @@ export default function Reviews() {
   const [selectedRatingFilter, setSelectedRatingFilter] = useState<number | 'all'>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<'newest' | 'highest' | 'lowest'>('newest');
+  
+  // Pagination
+  const [visibleCount, setVisibleCount] = useState(9);
   
   // Helpful votes in-memory/localStorage tracking
   const [helpfulVotes, setHelpfulVotes] = useState<Record<number, number>>({});
@@ -80,45 +89,24 @@ export default function Reviews() {
     customerName: user?.name || '',
     location: '',
     rating: 5,
-    text: '',
-    bookingId: ''
+    text: ''
   });
 
-  // Verification state
-  const [verifyingBooking, setVerifyingBooking] = useState(false);
-  const [verificationResult, setVerificationResult] = useState<BookingVerification | null>(null);
-
-  // Active Mobile Tab: 'list' or 'write'
-  const [mobileTab, setMobileTab] = useState<'list' | 'write'>('list');
-
-  const fetchReviews = async () => {
-    try {
-      const res = await fetch('/api/testimonials', { cache: 'no-store' });
-      const data = await res.json();
-      if (Array.isArray(data)) {
-        setReviews(data);
-      }
-    } catch (err) {
-      console.error('Error fetching testimonials:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
+  // Active Tab State (Write by default on Mobile, List by default on Desktop)
+  const [activeTab, setActiveTab] = useState<'list' | 'write'>('write');
 
   useEffect(() => {
-    fetchReviews();
+    if (typeof window !== 'undefined' && window.innerWidth >= 1024) {
+      setActiveTab('list');
+    }
+  }, []);
 
+  useEffect(() => {
     // Load stored helpful votes
     try {
       const storedVotes = localStorage.getItem('faris_reviews_helpful');
       if (storedVotes) setUserVoted(JSON.parse(storedVotes));
     } catch (e) {}
-
-    const handleSync = () => fetchReviews();
-    window.addEventListener('faris_reviews_updated', handleSync);
-    return () => {
-      window.removeEventListener('faris_reviews_updated', handleSync);
-    };
   }, []);
 
   // Autofill user name if logged in
@@ -127,39 +115,6 @@ export default function Reviews() {
       setFormData(prev => ({ ...prev, customerName: user.name }));
     }
   }, [user]);
-
-  // Real-time booking verification with debounce
-  useEffect(() => {
-    const rawId = formData.bookingId.trim();
-    if (!rawId || rawId.length < 4) {
-      setVerificationResult(null);
-      return;
-    }
-
-    const timer = setTimeout(async () => {
-      setVerifyingBooking(true);
-      try {
-        const res = await fetch(`/api/testimonials/verify-booking/${encodeURIComponent(rawId)}`);
-        const data: BookingVerification = await res.json();
-        setVerificationResult(data);
-
-        // Autofill verified details if available
-        if (data.valid) {
-          setFormData(prev => ({
-            ...prev,
-            customerName: prev.customerName || data.customerName || '',
-            location: prev.location || data.routeText || ''
-          }));
-        }
-      } catch (e) {
-        console.warn('Booking verify error:', e);
-      } finally {
-        setVerifyingBooking(false);
-      }
-    }, 500);
-
-    return () => clearTimeout(timer);
-  }, [formData.bookingId]);
 
   const handleHelpfulClick = (reviewId: number) => {
     if (userVoted[reviewId]) return;
@@ -173,13 +128,8 @@ export default function Reviews() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.customerName.trim() || !formData.text.trim() || !formData.bookingId.trim()) {
-      setErrorMsg(isAr ? 'يرجى إدخال اسمك، نص التقييم، ورقم الحجز المعتمد.' : 'Please enter your name, review text, and confirmed Booking ID.');
-      return;
-    }
-
-    if (verificationResult && verificationResult.alreadyReviewed) {
-      setErrorMsg(isAr ? 'تم إرسال تقييم مسبقاً لرقم الحجز هذا (تقييم واحد لكل رحلة).' : 'A review has already been submitted for this booking order (1 review per completed ride).');
+    if (!formData.customerName.trim() || !formData.text.trim()) {
+      setErrorMsg(isAr ? 'يرجى إدخال اسمك ونص التقييم.' : 'Please enter your name and review text.');
       return;
     }
 
@@ -204,16 +154,21 @@ export default function Reviews() {
           customerName: user?.name || '', 
           location: '', 
           rating: 5, 
-          text: '', 
-          bookingId: '' 
+          text: ''
         });
-        setVerificationResult(null);
-        fetchReviews();
+        // Force an immediate fetch to bypass polling delay
+        fetch('/api/testimonials').then(r => r.json()).then(d => {
+           if (typeof window !== 'undefined') {
+              // This relies on the polling eventually catching up, but we could broadcast an event
+              window.dispatchEvent(new Event('faris_reviews_updated'));
+           }
+        }).catch(e => {});
 
-        // Switch to list tab on mobile after submit
-        if (window.innerWidth < 1024) {
-          setTimeout(() => setMobileTab('list'), 1500);
-        }
+        // Switch to list tab after submit
+        setTimeout(() => {
+          setActiveTab('list');
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }, 1500);
       } else {
         setErrorMsg(data.error || 'Failed to submit review');
       }
@@ -249,6 +204,13 @@ export default function Reviews() {
       return b.id - a.id; // Newest
     });
 
+  const paginatedReviews = filteredReviews.slice(0, visibleCount);
+
+  // Reset pagination when filters change
+  useEffect(() => {
+    setVisibleCount(9);
+  }, [searchQuery, selectedRatingFilter, sortBy]);
+
   // Calculate Breakdown Percentages
   const totalReviewsCount = reviews.length || 1;
   const count5Star = reviews.filter(r => (r.rating || 5) === 5).length;
@@ -259,11 +221,25 @@ export default function Reviews() {
   const percent3 = Math.round((count3Star / totalReviewsCount) * 100) || 0;
 
   const scrollToReviewForm = () => {
-    setMobileTab('write');
+    setActiveTab('write');
     setTimeout(() => {
-      const el = document.getElementById('write-review-card');
-      el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     }, 50);
+  };
+
+  const handleDownloadQR = () => {
+    const canvas = document.getElementById('review-qr-code') as HTMLCanvasElement;
+    if (canvas) {
+      const pngUrl = canvas
+        .toDataURL('image/png')
+        .replace('image/png', 'image/octet-stream');
+      const downloadLink = document.createElement('a');
+      downloadLink.href = pngUrl;
+      downloadLink.download = 'Faris-VIP-Review-QR.png';
+      document.body.appendChild(downloadLink);
+      downloadLink.click();
+      document.body.removeChild(downloadLink);
+    }
   };
 
   return (
@@ -281,182 +257,119 @@ export default function Reviews() {
       <Breadcrumbs items={[{ label: isAr ? 'تقييمات ضيوف الرحمن' : 'Client Reviews' }]} />
 
       {/* Hero Header Banner */}
-      <div className="bg-gradient-to-b from-[#05513F] via-[#076650] to-[#044234] text-white relative overflow-hidden py-12 sm:py-16 lg:py-20 px-4 shadow-md">
-        <div className="absolute inset-0 opacity-10 bg-[radial-gradient(#d4af37_1.5px,transparent_1.5px)] [background-size:20px_20px] pointer-events-none"></div>
+      <div className="bg-gradient-to-br from-[#0c2e22] via-[#05513F] to-[#03291F] text-white relative overflow-hidden py-8 sm:py-12 lg:py-16 px-4 shadow-xl">
+        <div className="absolute inset-0 opacity-[0.03] bg-[radial-gradient(#ffffff_1px,transparent_1px)] [background-size:24px_24px] pointer-events-none"></div>
+        <div className="absolute top-0 right-0 w-96 h-96 bg-[var(--color-saudi-green)] rounded-full blur-[120px] opacity-20 transform translate-x-1/3 -translate-y-1/3"></div>
+        <div className="absolute bottom-0 left-0 w-80 h-80 bg-amber-500 rounded-full blur-[100px] opacity-10 transform -translate-x-1/3 translate-y-1/3"></div>
+
         <div className="container mx-auto max-w-5xl relative z-10 text-center">
           
-          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-black bg-white/15 text-emerald-100 border border-white/20 mb-4 backdrop-blur-xs shadow-xs">
-            <Sparkles size={14} className="text-amber-300 shrink-0" />
-            <span>{isAr ? 'تقييمات معتمدة 100% برقم الحجز الرسمي' : '100% Verified Pilgrimage Experiences'}</span>
-          </div>
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+            className="hidden md:inline-flex items-center gap-2 px-3 py-1 sm:px-4 sm:py-1.5 rounded-full text-[10px] sm:text-[11px] font-black bg-white/10 text-emerald-50 border border-white/20 mb-3 sm:mb-4 backdrop-blur-md shadow-lg"
+          >
+            <Sparkles size={12} className="text-amber-400 shrink-0" />
+            <span className="tracking-wide uppercase">{isAr ? 'تقييمات معتمدة 100% برقم الحجز الرسمي' : '100% Verified Pilgrimage Experiences'}</span>
+          </motion.div>
 
-          <h1 className="text-2xl sm:text-4xl md:text-5xl font-black mb-3 text-white tracking-tight leading-tight">
+          {/* Desktop Title */}
+          <motion.h1 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.1 }}
+            className="hidden md:block text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-black mb-2 sm:mb-3 text-white tracking-tight leading-[1.15]"
+          >
             {isAr ? 'آراء وتجارب ضيوف الرحمن' : 'What Our Pilgrims Say'}
-          </h1>
+          </motion.h1>
 
-          <p className="text-xs sm:text-sm md:text-base text-emerald-100/90 max-w-2xl mx-auto leading-relaxed font-medium mb-6">
+          {/* Mobile Title */}
+          <motion.h1 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.1 }}
+            className="block md:hidden text-2xl font-black mb-0 text-white tracking-tight leading-[1.15]"
+          >
+            {isAr ? 'شاركنا تجربتك' : 'Share Your Experience'}
+          </motion.h1>
+
+          {/* Desktop Only Description */}
+          <motion.p 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.2 }}
+            className="hidden md:block text-sm lg:text-base text-emerald-100/90 max-w-2xl mx-auto leading-relaxed font-medium mb-6"
+          >
             {isAr 
               ? 'نعتز بخدمة ضيوف الرحمن سنوياً بسيارات VIP حديثة وسائقين محترفين. اطلع على تقييماتهم الموثقة أو شاركنا تجربتك الكريمة.' 
               : 'Honored to serve thousands of Umrah pilgrims with VIP GMC Yukon XL, Lexus, and luxury buses. Read verified feedback or rate your trip.'}
-          </p>
+          </motion.p>
 
-          {/* Quick Metrics & Write Review Action */}
-          <div className="flex flex-wrap items-center justify-center gap-3 sm:gap-4">
-            <div className="flex items-center gap-1.5 bg-black/25 backdrop-blur-xs border border-white/15 px-3 sm:px-4 py-2 rounded-xl text-xs font-bold text-emerald-100">
-              <Star size={15} className="fill-amber-400 text-amber-400" />
-              <span className="text-white font-black text-sm">4.9 / 5.0</span>
-              <span className="opacity-80">({reviews.length}+ {isAr ? 'تقييم' : 'Reviews'})</span>
+          {/* Desktop Only Rating Badge */}
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.3 }}
+            className="hidden md:flex flex-wrap items-center justify-center gap-3 sm:gap-4"
+          >
+            <div className="flex items-center gap-2 bg-black/40 backdrop-blur-md border border-white/10 px-5 py-2.5 rounded-xl text-sm font-bold text-emerald-50 shadow-inner">
+              <Star size={18} className="fill-amber-400 text-amber-400" />
+              <span className="text-white font-black text-lg">4.9 / 5.0</span>
+              <span className="opacity-70 ml-1">({reviews.length}+ {isAr ? 'تقييم' : 'Reviews'})</span>
             </div>
+          </motion.div>
 
-            <button
-              type="button"
-              onClick={scrollToReviewForm}
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 active:scale-95 text-[#0c2e22] font-black text-xs sm:text-sm shadow-md transition-all cursor-pointer"
-            >
-              <Send size={15} className="shrink-0" />
-              <span>{isAr ? 'أضف تقييمك الآن' : 'Write a Review'}</span>
-            </button>
-          </div>
+
         </div>
       </div>
 
       <div className="container mx-auto px-3 sm:px-4 md:px-6 lg:px-8 mt-6 sm:mt-8 max-w-7xl">
         
-        {/* Rating Overview & Breakdown Card */}
-        <div className="bg-white rounded-2xl p-4 sm:p-6 lg:p-8 shadow-xs border border-slate-200/90 mb-6 sm:mb-8">
-          <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-center">
-            
-            {/* Left: Big Score Badge */}
-            <div className="md:col-span-4 text-center md:text-left rtl:md:text-right border-b md:border-b-0 md:border-r rtl:md:border-r-0 rtl:md:border-l border-slate-200 pb-5 md:pb-0 md:pr-6 rtl:md:pr-0 rtl:md:pl-6">
-              <div className="inline-flex items-center gap-1.5 bg-emerald-50 text-[var(--color-saudi-green)] px-3 py-1 rounded-full text-xs font-bold mb-2">
-                <ShieldCheck size={14} /> 
-                <span>{isAr ? 'تقييمات معتمدة رسمياً' : 'Official Verified Rating'}</span>
-              </div>
-              <div className="flex items-baseline justify-center md:justify-start rtl:md:justify-start gap-2 mb-1">
-                <span className="text-4xl sm:text-5xl font-black text-[#0c2e22] tracking-tight">4.9</span>
-                <span className="text-base text-gray-400 font-bold">/ 5.0</span>
-              </div>
-              <div className="flex items-center justify-center md:justify-start rtl:md:justify-start gap-1 text-amber-400 mb-2">
-                {[1, 2, 3, 4, 5].map((s) => (
-                  <Star key={s} size={18} className="fill-amber-400" />
-                ))}
-              </div>
-              <p className="text-xs text-gray-500 font-medium">
-                {isAr ? `استناداً إلى ${reviews.length} تجربة معتمرين موثقة` : `Based on ${reviews.length} authenticated pilgrim reviews`}
-              </p>
-            </div>
 
-            {/* Middle: Star Rating Distribution Progress Bars */}
-            <div className="md:col-span-5 space-y-2.5">
-              <div className="flex items-center gap-2 sm:gap-3 text-xs font-bold text-gray-700">
-                <span className="w-12 text-right rtl:text-left shrink-0">5 {isAr ? 'نجوم' : 'Stars'}</span>
-                <div className="flex-1 h-3 bg-slate-100 rounded-full overflow-hidden">
-                  <div className="h-full bg-amber-400 rounded-full transition-all duration-500" style={{ width: `${percent5}%` }}></div>
-                </div>
-                <span className="w-10 text-left rtl:text-right text-gray-500 text-[11px] sm:text-xs shrink-0">{percent5}%</span>
-              </div>
-              
-              <div className="flex items-center gap-2 sm:gap-3 text-xs font-bold text-gray-700">
-                <span className="w-12 text-right rtl:text-left shrink-0">4 {isAr ? 'نجوم' : 'Stars'}</span>
-                <div className="flex-1 h-3 bg-slate-100 rounded-full overflow-hidden">
-                  <div className="h-full bg-amber-400 rounded-full transition-all duration-500" style={{ width: `${percent4}%` }}></div>
-                </div>
-                <span className="w-10 text-left rtl:text-right text-gray-500 text-[11px] sm:text-xs shrink-0">{percent4}%</span>
-              </div>
 
-              <div className="flex items-center gap-2 sm:gap-3 text-xs font-bold text-gray-700">
-                <span className="w-12 text-right rtl:text-left shrink-0">3 {isAr ? 'نجوم' : 'Stars'}</span>
-                <div className="flex-1 h-3 bg-slate-100 rounded-full overflow-hidden">
-                  <div className="h-full bg-amber-400 rounded-full transition-all duration-500" style={{ width: `${percent3}%` }}></div>
-                </div>
-                <span className="w-10 text-left rtl:text-right text-gray-500 text-[11px] sm:text-xs shrink-0">{percent3}%</span>
-              </div>
-            </div>
-
-            {/* Right: Star Filter Buttons */}
-            <div className="md:col-span-3 flex flex-col gap-2">
-              <span className="text-xs font-black text-gray-700 uppercase tracking-wider mb-0.5">
-                {isAr ? 'تصفية حسب النجوم:' : 'Filter by Stars:'}
+        {/* Unified Responsive View Toggle Switch */}
+        <div className="flex justify-center mb-6 sm:mb-8">
+          <div className="inline-flex rounded-full bg-white p-1.5 border border-slate-200 shadow-sm w-full max-w-sm relative">
+            <button
+              type="button"
+              onClick={() => setActiveTab('list')}
+              className={`flex-1 py-3 px-4 rounded-full font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all cursor-pointer relative z-10 ${
+                activeTab === 'list' 
+                  ? 'bg-[var(--color-saudi-green)] text-white shadow-md' 
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              <MessageSquare size={16} className={activeTab === 'list' ? 'text-white' : 'text-gray-400'} />
+              <span>{isAr ? 'تصفح التقييمات' : 'See Reviews'}</span>
+              <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-black ${
+                activeTab === 'list' ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-500'
+              }`}>
+                {filteredReviews.length}
               </span>
-              <div className="flex flex-wrap gap-1.5 sm:gap-2">
-                <button
-                  type="button"
-                  onClick={() => setSelectedRatingFilter('all')}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                    selectedRatingFilter === 'all' 
-                      ? 'bg-[var(--color-saudi-green)] text-white shadow-xs' 
-                      : 'bg-slate-100 text-gray-700 hover:bg-slate-200'
-                  }`}
-                >
-                  {isAr ? 'الكل' : 'All'} ({reviews.length})
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setSelectedRatingFilter(5)}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1 transition-all cursor-pointer ${
-                    selectedRatingFilter === 5 
-                      ? 'bg-amber-400 text-[#0c2e22] shadow-xs' 
-                      : 'bg-slate-100 text-gray-700 hover:bg-slate-200'
-                  }`}
-                >
-                  <span>5</span> <Star size={12} className="fill-amber-500 text-amber-500" /> ({count5Star})
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setSelectedRatingFilter(4)}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1 transition-all cursor-pointer ${
-                    selectedRatingFilter === 4 
-                      ? 'bg-amber-400 text-[#0c2e22] shadow-xs' 
-                      : 'bg-slate-100 text-gray-700 hover:bg-slate-200'
-                  }`}
-                >
-                  <span>4</span> <Star size={12} className="fill-amber-500 text-amber-500" /> ({count4Star})
-                </button>
-              </div>
-            </div>
-
+            </button>
+            
+            <button
+              type="button"
+              onClick={() => setActiveTab('write')}
+              className={`flex-1 py-3 px-4 rounded-full font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all cursor-pointer relative z-10 ${
+                activeTab === 'write' 
+                  ? 'bg-[var(--color-saudi-green)] text-white shadow-md' 
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              <Star size={16} className={activeTab === 'write' ? 'fill-amber-400 text-amber-400' : 'text-gray-400'} />
+              <span>{isAr ? 'أضف تقييم' : 'Write a Review'}</span>
+            </button>
           </div>
         </div>
 
-        {/* Mobile View Toggle Switch (List vs Write Review) */}
-        <div className="lg:hidden flex rounded-2xl bg-white p-1.5 border border-slate-200 shadow-2xs mb-6">
-          <button
-            type="button"
-            onClick={() => setMobileTab('list')}
-            className={`flex-1 py-2.5 px-3 rounded-xl font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all cursor-pointer ${
-              mobileTab === 'list' 
-                ? 'bg-[var(--color-saudi-green)] text-white shadow-xs' 
-                : 'text-gray-600 hover:text-gray-900'
-            }`}
-          >
-            <MessageSquare size={16} />
-            <span>{isAr ? 'تصفح التقييمات' : 'Browse Reviews'}</span>
-            <span className="text-[11px] px-2 py-0.5 rounded-full bg-white/20 text-white font-black">
-              {filteredReviews.length}
-            </span>
-          </button>
+        {/* Content Area */}
+        <div className="w-full">
           
-          <button
-            type="button"
-            onClick={() => setMobileTab('write')}
-            className={`flex-1 py-2.5 px-3 rounded-xl font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all cursor-pointer ${
-              mobileTab === 'write' 
-                ? 'bg-[var(--color-saudi-green)] text-white shadow-xs' 
-                : 'text-gray-600 hover:text-gray-900'
-            }`}
-          >
-            <Star size={16} className="fill-amber-400 text-amber-400" />
-            <span>{isAr ? 'أضف تقييم' : 'Write Review'}</span>
-          </button>
-        </div>
-
-        {/* Main 2-Column Responsive Layout */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-start">
-          
-          {/* Reviews List & Search Column (Left: 7 cols) */}
-          <div className={`lg:col-span-7 xl:col-span-7 space-y-4 sm:space-y-5 min-w-0 ${
-            mobileTab === 'write' ? 'hidden lg:block' : 'block'
-          }`}>
+          {/* 1) LIST TAB */}
+          {activeTab === 'list' && (
+            <div className="space-y-4 sm:space-y-6">
             
             {/* Search & Sort Toolbar */}
             <div className="bg-white p-3.5 sm:p-4 rounded-2xl shadow-xs border border-slate-200/90 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
@@ -530,7 +443,7 @@ export default function Reviews() {
                 </button>
               </div>
             ) : (
-              <div className="grid grid-cols-1 gap-3.5 sm:gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
                 {filteredReviews.map((rev) => (
                   <div 
                     key={rev.id} 
@@ -631,17 +544,28 @@ export default function Reviews() {
                 ))}
               </div>
             )}
+            
+            {visibleCount < filteredReviews.length && (
+              <div className="flex justify-center mt-8">
+                <button
+                  type="button"
+                  onClick={() => setVisibleCount(prev => prev + 9)}
+                  className="px-6 py-2.5 rounded-full bg-white border border-slate-200 text-gray-700 font-bold text-sm shadow-sm hover:bg-slate-50 transition-all cursor-pointer flex items-center gap-2"
+                >
+                  <ChevronDown size={16} />
+                  <span>{isAr ? 'عرض المزيد' : 'Load More'}</span>
+                </button>
+              </div>
+            )}
+            
+            </div>
+          )}
 
-          </div>
-
-          {/* Write a Review Card Column (Right: 5 cols) */}
-          <div 
-            id="write-review-card"
-            className={`lg:col-span-5 xl:col-span-5 w-full min-w-0 ${
-              mobileTab === 'list' ? 'hidden lg:block' : 'block'
-            }`}
-          >
-            <div className="bg-white p-4 sm:p-6 lg:p-6 xl:p-8 rounded-2xl shadow-sm border border-slate-200/90 w-full min-w-0 lg:sticky lg:top-28 lg:max-h-[calc(100vh-8.5rem)] lg:overflow-y-auto">
+          {/* 2) WRITE TAB */}
+          {activeTab === 'write' && (
+            <div id="write-review-card" className="grid grid-cols-1 md:grid-cols-12 gap-6 lg:gap-8 max-w-5xl mx-auto w-full min-w-0">
+              
+              <div className="md:col-span-7 bg-white p-4 sm:p-6 lg:p-8 rounded-2xl shadow-sm border border-slate-200/90 w-full min-w-0">
               
               {/* Card Header */}
               <div className="flex items-center justify-between gap-3 mb-4 pb-4 border-b border-slate-100">
@@ -654,18 +578,14 @@ export default function Reviews() {
                       {isAr ? 'أضف تقييمك وتجربتك' : 'Share Your Experience'}
                     </h3>
                     <p className="text-[11px] sm:text-xs text-gray-500 font-medium truncate">
-                      {isAr ? 'تقييم رسمي موثق برقم الحجز' : 'Verified review linked to your booking'}
+                      {isAr ? 'رأيك يهمنا ويساعدنا على التطور' : 'Your feedback helps us improve'}
                     </p>
                   </div>
                 </div>
-
-                <span className="text-[10px] font-black text-amber-800 bg-amber-50 border border-amber-200 px-2.5 py-1 rounded-full shrink-0">
-                  {isAr ? 'موثق' : 'Verified'}
-                </span>
               </div>
 
               {/* Logged in User Banner (Optional) */}
-              {user ? (
+              {user && (
                 <div className="mb-4 p-3 bg-emerald-50/80 border border-emerald-200/80 rounded-xl flex items-center justify-between gap-2 text-xs">
                   <div className="flex items-center gap-2 min-w-0">
                     <User size={14} className="text-emerald-700 shrink-0" />
@@ -676,15 +596,6 @@ export default function Reviews() {
                   <span className="text-[10px] font-bold text-emerald-700 shrink-0 bg-emerald-100/60 px-2 py-0.5 rounded-md">
                     {isAr ? 'حساب معتمد' : 'Account'}
                   </span>
-                </div>
-              ) : (
-                <div className="mb-4 p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-gray-600 flex items-center justify-between gap-2">
-                  <span className="text-[11px] font-medium leading-tight">
-                    {isAr ? 'أدخل رقم الحجز الخاص برحلتك لتوثيق التقييم' : 'Enter your booking ID to verify your ride'}
-                  </span>
-                  <Link to="/login" className="text-[11px] text-[var(--color-saudi-green)] font-bold hover:underline shrink-0 whitespace-nowrap">
-                    {isAr ? 'تسجيل دخول' : 'Sign in'}
-                  </Link>
                 </div>
               )}
 
@@ -706,65 +617,6 @@ export default function Reviews() {
                     <span className="leading-relaxed">{errorMsg}</span>
                   </div>
                 )}
-
-                {/* Booking ID Input + Real-time verification badge */}
-                <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <label className="block text-xs font-bold text-gray-700">
-                      {isAr ? 'رقم الحجز (Booking ID) *' : 'Booking ID / Order ID *'}
-                    </label>
-                    {verifyingBooking && (
-                      <span className="text-[10px] text-emerald-700 font-bold flex items-center gap-1">
-                        <span className="w-2 h-2 rounded-full bg-emerald-600 animate-ping"></span>
-                        {isAr ? 'جاري التحقق...' : 'Verifying...'}
-                      </span>
-                    )}
-                  </div>
-
-                  <input 
-                    type="text" 
-                    value={formData.bookingId} 
-                    onChange={e => setFormData({ ...formData, bookingId: e.target.value.toUpperCase() })}
-                    placeholder="e.g., FUV-2026-86451"
-                    required
-                    className={`w-full min-w-0 border p-2.5 sm:p-3 rounded-xl text-xs sm:text-sm font-bold tracking-wider outline-none transition-all box-border ${
-                      verificationResult?.valid 
-                        ? 'border-emerald-400 bg-emerald-50/40 text-emerald-950 focus:ring-2 focus:ring-emerald-500' 
-                        : verificationResult && !verificationResult.valid
-                          ? 'border-amber-300 bg-amber-50/40 text-amber-900 focus:ring-2 focus:ring-amber-400'
-                          : 'border-slate-200 bg-slate-50 text-gray-800 focus:ring-2 focus:ring-[var(--color-saudi-green)] focus:bg-white'
-                    }`}
-                  />
-
-                  {/* Verification Status Card */}
-                  {verificationResult && verificationResult.valid && (
-                    <div className="mt-2 p-2.5 bg-emerald-50 border border-emerald-200 rounded-xl text-xs animate-fadeIn">
-                      <div className="flex items-center gap-1.5 text-emerald-900 font-black mb-1">
-                        <CheckCircle2 size={14} className="text-[var(--color-saudi-green)] shrink-0" />
-                        <span>{isAr ? 'تم التحقق من الحجز بنجاح' : 'Booking Verified Successfully'}</span>
-                      </div>
-                      <p className="text-[11px] text-emerald-800 font-medium leading-relaxed">
-                        {verificationResult.customerName} • {verificationResult.routeText} • {verificationResult.vehicleName}
-                      </p>
-                      {verificationResult.alreadyReviewed && (
-                        <p className="text-[10px] text-amber-700 font-bold mt-1 bg-amber-100/70 px-2 py-0.5 rounded-md inline-block">
-                          {isAr ? 'ملاحظة: تم إرسال تقييم مسبقاً لهذا الحجز' : 'Note: A review has already been submitted for this booking.'}
-                        </p>
-                      )}
-                    </div>
-                  )}
-
-                  {verificationResult && !verificationResult.valid && formData.bookingId.length >= 6 && (
-                    <p className="text-[10px] text-amber-700 mt-1 font-medium leading-normal flex items-center gap-1">
-                      <AlertCircle size={11} className="shrink-0" />
-                      <span>{isAr ? 'لم نتمكن من مطابقة رقم الحجز تلقائياً. تأكد من إدخال الرمز من رسالة الواتساب أو الإيميل.' : 'Could not find booking with this ID. Please verify your receipt ticket.'}</span>
-                    </p>
-                  )}
-
-                  <p className="text-[10px] text-gray-500 mt-1">
-                    {isAr ? 'رقم الحجز المستلم عبر الواتساب أو البريد (تقييم واحد لكل طلب).' : 'Found in your WhatsApp booking confirmation or email ticket.'}
-                  </p>
-                </div>
 
                 {/* Customer Name */}
                 <div>
@@ -868,25 +720,166 @@ export default function Reviews() {
                 </div>
 
               </form>
+              </div>
+
+              {/* QR Code Section for Desktop and Mobile Users (Right Col) */}
+              <div className="md:col-span-5">
+                <div className="bg-white p-6 lg:p-8 rounded-2xl shadow-sm border border-slate-200/90 flex flex-col items-center justify-center text-center h-full">
+                  <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-emerald-50 text-[var(--color-saudi-green)] mb-4 border border-emerald-100">
+                    <ExternalLink size={20} className="ml-1 rtl:mr-1 rtl:ml-0" />
+                  </div>
+                <h4 className="font-black text-gray-900 text-sm sm:text-base mb-1.5">
+                  {isAr ? 'شارك صفحة التقييم' : 'Share Review Portal'}
+                </h4>
+                <p className="text-xs text-gray-500 mb-5 max-w-[260px] leading-relaxed">
+                  {isAr 
+                    ? 'امسح الرمز البريدي بكاميرا جوالك لمشاركة هذه الصفحة، أو قم بتحميله للوصول السريع لاحقاً' 
+                    : 'Scan this QR code with your phone camera to open this page or download it for future access.'}
+                </p>
+                <div className="p-4 bg-white rounded-2xl shadow-sm border border-slate-200 hover:border-emerald-300 hover:shadow-md transition-all group">
+                  <div className="relative bg-white rounded-xl">
+                    <QRCodeCanvas 
+                      id="review-qr-code"
+                      value="https://farisvipumrahtransport.com/reviews" 
+                      size={160} 
+                      level="H"
+                      includeMargin={false}
+                      fgColor="#0c2e22"
+                      className="group-hover:scale-105 transition-transform duration-300"
+                    />
+                    <div className="absolute inset-0 border border-black/5 rounded-xl pointer-events-none"></div>
+                  </div>
+                </div>
+                
+                <button
+                  onClick={handleDownloadQR}
+                  type="button"
+                  className="mt-5 inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition-all cursor-pointer"
+                >
+                  <Download size={14} />
+                  <span>{isAr ? 'تحميل رمز الاستجابة السريعة (QR)' : 'Download QR Code'}</span>
+                </button>
+                
+                <span className="text-[10px] font-black text-slate-400 mt-4 tracking-[0.2em] uppercase">Faris VIP Transport</span>
+                </div>
+              </div>
 
             </div>
+          )}
+
+        {/* Rating Overview & Breakdown Card - Moved below the form as requested */}
+        <div className="bg-white rounded-2xl p-4 sm:p-6 lg:p-8 shadow-xs border border-slate-200/90 mt-8 mb-6 sm:mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-center">
+            
+            {/* Left: Big Score Badge */}
+            <div className="md:col-span-4 text-center md:text-left rtl:md:text-right border-b md:border-b-0 md:border-r rtl:md:border-r-0 rtl:md:border-l border-slate-200 pb-5 md:pb-0 md:pr-6 rtl:md:pr-0 rtl:md:pl-6">
+              <div className="inline-flex items-center gap-1.5 bg-emerald-50 text-[var(--color-saudi-green)] px-3 py-1 rounded-full text-xs font-bold mb-2">
+                <ShieldCheck size={14} /> 
+                <span>{isAr ? 'تقييمات معتمدة رسمياً' : 'Official Verified Rating'}</span>
+              </div>
+              <div className="flex items-baseline justify-center md:justify-start rtl:md:justify-start gap-2 mb-1">
+                <span className="text-4xl sm:text-5xl font-black text-[#0c2e22] tracking-tight">4.9</span>
+                <span className="text-base text-gray-400 font-bold">/ 5.0</span>
+              </div>
+              <div className="flex items-center justify-center md:justify-start rtl:md:justify-start gap-1 text-amber-400 mb-2">
+                {[1, 2, 3, 4, 5].map((s) => (
+                  <Star key={s} size={18} className="fill-amber-400" />
+                ))}
+              </div>
+              <p className="text-xs text-gray-500 font-medium">
+                {isAr ? `استناداً إلى ${reviews.length} تجربة معتمرين موثقة` : `Based on ${reviews.length} authenticated pilgrim reviews`}
+              </p>
+            </div>
+
+            {/* Middle: Star Rating Distribution Progress Bars */}
+            <div className="md:col-span-5 space-y-2.5">
+              <div className="flex items-center gap-2 sm:gap-3 text-xs font-bold text-gray-700">
+                <span className="w-12 text-right rtl:text-left shrink-0">5 {isAr ? 'نجوم' : 'Stars'}</span>
+                <div className="flex-1 h-3 bg-slate-100 rounded-full overflow-hidden">
+                  <div className="h-full bg-amber-400 rounded-full transition-all duration-500" style={{ width: `${percent5}%` }}></div>
+                </div>
+                <span className="w-10 text-left rtl:text-right text-gray-500 text-[11px] sm:text-xs shrink-0">{percent5}%</span>
+              </div>
+              
+              <div className="flex items-center gap-2 sm:gap-3 text-xs font-bold text-gray-700">
+                <span className="w-12 text-right rtl:text-left shrink-0">4 {isAr ? 'نجوم' : 'Stars'}</span>
+                <div className="flex-1 h-3 bg-slate-100 rounded-full overflow-hidden">
+                  <div className="h-full bg-amber-400 rounded-full transition-all duration-500" style={{ width: `${percent4}%` }}></div>
+                </div>
+                <span className="w-10 text-left rtl:text-right text-gray-500 text-[11px] sm:text-xs shrink-0">{percent4}%</span>
+              </div>
+
+              <div className="flex items-center gap-2 sm:gap-3 text-xs font-bold text-gray-700">
+                <span className="w-12 text-right rtl:text-left shrink-0">3 {isAr ? 'نجوم' : 'Stars'}</span>
+                <div className="flex-1 h-3 bg-slate-100 rounded-full overflow-hidden">
+                  <div className="h-full bg-amber-400 rounded-full transition-all duration-500" style={{ width: `${percent3}%` }}></div>
+                </div>
+                <span className="w-10 text-left rtl:text-right text-gray-500 text-[11px] sm:text-xs shrink-0">{percent3}%</span>
+              </div>
+            </div>
+
+            {/* Right: Star Filter Buttons */}
+            <div className="md:col-span-3 flex flex-col gap-2">
+              <span className="text-xs font-black text-gray-700 uppercase tracking-wider mb-0.5">
+                {isAr ? 'تصفية حسب النجوم:' : 'Filter by Stars:'}
+              </span>
+              <div className="flex flex-wrap gap-1.5 sm:gap-2">
+                <button
+                  type="button"
+                  onClick={() => setSelectedRatingFilter('all')}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                    selectedRatingFilter === 'all' 
+                      ? 'bg-[var(--color-saudi-green)] text-white shadow-xs' 
+                      : 'bg-slate-100 text-gray-700 hover:bg-slate-200'
+                  }`}
+                >
+                  {isAr ? 'الكل' : 'All'} ({reviews.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedRatingFilter(5)}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1 transition-all cursor-pointer ${
+                    selectedRatingFilter === 5 
+                      ? 'bg-amber-400 text-[#0c2e22] shadow-xs' 
+                      : 'bg-slate-100 text-gray-700 hover:bg-slate-200'
+                  }`}
+                >
+                  <span>5</span> <Star size={12} className="fill-amber-500 text-amber-500" /> ({count5Star})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedRatingFilter(4)}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1 transition-all cursor-pointer ${
+                    selectedRatingFilter === 4 
+                      ? 'bg-amber-400 text-[#0c2e22] shadow-xs' 
+                      : 'bg-slate-100 text-gray-700 hover:bg-slate-200'
+                  }`}
+                >
+                  <span>4</span> <Star size={12} className="fill-amber-500 text-amber-500" /> ({count4Star})
+                </button>
+              </div>
+            </div>
+
           </div>
+        </div>
 
         </div>
 
       </div>
 
       {/* Mobile Sticky Floating Review Action Button */}
-      <div className="lg:hidden fixed bottom-4 right-4 rtl:right-auto rtl:left-4 z-40">
-        <button
-          type="button"
-          onClick={scrollToReviewForm}
-          className="inline-flex items-center gap-2 px-4 py-3 rounded-full bg-[var(--color-saudi-green)] text-white font-black text-xs shadow-xl hover:bg-emerald-800 active:scale-95 transition-all border border-emerald-400/30 cursor-pointer"
-        >
-          <Star size={16} className="fill-amber-400 text-amber-400" />
-          <span>{isAr ? 'أضف تقييم' : 'Write Review'}</span>
-        </button>
-      </div>
+      {activeTab === 'list' && (
+        <div className="md:hidden fixed bottom-4 right-4 rtl:right-auto rtl:left-4 z-40">
+          <button
+            type="button"
+            onClick={scrollToReviewForm}
+            className="inline-flex items-center gap-2 px-4 py-3 rounded-full bg-[var(--color-saudi-green)] text-white font-black text-xs shadow-xl hover:bg-emerald-800 active:scale-95 transition-all border border-emerald-400/30 cursor-pointer"
+          >
+            <Star size={16} className="fill-amber-400 text-amber-400" />
+            <span>{isAr ? 'أضف تقييم' : 'Write Review'}</span>
+          </button>
+        </div>
+      )}
 
     </div>
   );

@@ -80,7 +80,7 @@ const DEFAULT_TESTIMONIALS: TestimonialItem[] = [
     vehicleModel: "GMC Yukon XL 2025",
     rating: 5,
     date: "2026",
-    text: "The GMC XL 2025 easily accommodated all 7 family members plus 8 large suitcases without compromise. Smooth ride, high roof clearance, and very respectful chauffeur who assisted with all our luggage."
+    text: "The FORD EXPEDITION easily accommodated all 7 family members plus 8 large suitcases without compromise. Smooth ride, high roof clearance, and very respectful chauffeur who assisted with all our luggage."
   },
   {
     id: 7,
@@ -132,7 +132,7 @@ const DEFAULT_TESTIMONIALS: TestimonialItem[] = [
     location: "Lahore, Pakistan",
     countryBadge: "🇵🇰 Pakistan",
     routeBadge: "Madinah Airport ➔ Markazia Hotel",
-    vehicleModel: "Toyota Camry 2025",
+    vehicleModel: "FORD TAURUS 2025",
     rating: 5,
     date: "2026",
     text: "Timely pickup right outside Prince Mohammad Airport. Driver helped with heavy luggage and provided complimentary cold Zamzam. Booking through WhatsApp was instant and easy."
@@ -204,7 +204,7 @@ export default function TestimonialSlider() {
             location: item.location || "Verified Guest",
             text: item.text || "",
             rating: item.rating || 5,
-            vehicleModel: item.vehicle_model || (idx % 2 === 0 ? "GMC Yukon XL 2025" : "Toyota Camry 2025"),
+            vehicleModel: item.vehicle_model || (idx % 2 === 0 ? "GMC Yukon XL 2025" : "FORD TAURUS 2025"),
             routeBadge: item.route_badge || (idx % 2 === 0 ? "Jeddah ➔ Makkah Haram" : "Madinah ➔ Makkah"),
             countryBadge: item.country_badge || "🕋 Umrah Guest",
             date: "1447H / 2026"

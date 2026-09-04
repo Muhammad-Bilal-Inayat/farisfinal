@@ -527,14 +527,23 @@ export default function Home() {
               </div>
 
               <div className="grid grid-cols-3 gap-1.5 sm:gap-2 mt-2.5 sm:mt-3">
-                {vehicles.slice(0, 3).map((veh: any, idx: number) => (
-                  <div key={veh.id || idx} className="bg-[#F1F4F8] p-2 sm:p-2.5 rounded-xl border border-slate-200/80 text-center shadow-2xs">
-                    <span className="text-[10px] sm:text-xs text-gray-600 font-bold uppercase block truncate">{veh.name}</span>
-                    <span className="text-xs sm:text-sm md:text-base font-extrabold text-[var(--color-dark-charcoal)]">
-                      {veh.passengerCapacity} {t('pass')} • {veh.luggageCapacity} {t('luggage_short')}
-                    </span>
-                  </div>
-                ))}
+                {vehicles.length === 0 ? (
+                  Array.from({ length: 3 }).map((_, idx) => (
+                    <div key={`badge-skel-${idx}`} className="bg-[#F1F4F8] p-2 sm:p-2.5 rounded-xl border border-slate-200/80 text-center shadow-2xs animate-pulse">
+                      <div className="h-3 bg-slate-200 rounded w-16 mx-auto mb-1"></div>
+                      <div className="h-4 bg-slate-200 rounded w-20 mx-auto"></div>
+                    </div>
+                  ))
+                ) : (
+                  vehicles.slice(0, 3).map((veh: any, idx: number) => (
+                    <div key={veh.id || idx} className="bg-[#F1F4F8] p-2 sm:p-2.5 rounded-xl border border-slate-200/80 text-center shadow-2xs">
+                      <span className="text-[10px] sm:text-xs text-gray-600 font-bold uppercase block truncate">{veh.name}</span>
+                      <span className="text-xs sm:text-sm md:text-base font-extrabold text-[var(--color-dark-charcoal)]">
+                        {veh.passengerCapacity} {t('pass')} • {veh.luggageCapacity} {t('luggage_short')}
+                      </span>
+                    </div>
+                  ))
+                )}
               </div>
             </motion.div>
 
@@ -612,11 +621,11 @@ export default function Home() {
             
             {/* Left Side: Madinah Al-Nabawi & Holy Landmarks Imagery */}
             <motion.div 
-              initial={{ opacity: 0, x: -30 }}
+              initial={{ opacity: 0, x: 30 }}
               whileInView={{ opacity: 1, x: 0 }}
               viewport={{ once: true, margin: "-100px" }}
               transition={{ duration: 0.7 }}
-              className="lg:col-span-6 relative"
+              className="lg:col-span-6 relative order-1 lg:order-2"
             >
               <div className="rounded-2xl overflow-hidden shadow-lg border border-slate-200/90 group">
                 <ResponsiveImage width="1000" height="800" src="https://images.unsplash.com/photo-1591604129939-f1efa4d9f7fa?auto=format&fit=crop&w=1000&q=80" 
@@ -638,11 +647,11 @@ export default function Home() {
 
             {/* Right Side: Ziyarat Landmarks Data & Itinerary */}
             <motion.div 
-              initial={{ opacity: 0, x: 30 }}
+              initial={{ opacity: 0, x: -30 }}
               whileInView={{ opacity: 1, x: 0 }}
               viewport={{ once: true, margin: "-100px" }}
               transition={{ duration: 0.7 }}
-              className="lg:col-span-6 flex flex-col justify-center"
+              className="lg:col-span-6 flex flex-col justify-center order-2 lg:order-1"
             >
               <span className="text-[10px] sm:text-xs uppercase font-bold tracking-[0.2em] text-[var(--color-saudi-green)] block mb-1">
                 {t('sacred_pilgrimage_milestones')}
@@ -717,12 +726,39 @@ export default function Home() {
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8 mb-12">
-            {vehicles.map((v) => (
-              <VisualDiv id={`vehicle_card_${v.id}`} key={v.id} className="bg-white rounded-3xl overflow-hidden shadow-md border border-slate-200/80 hover:shadow-2xl hover:border-emerald-400 transition-all duration-300 flex flex-col group transform hover:-translate-y-1.5">
+            {vehicles.length === 0 ? (
+              // Skeleton Loading State
+              Array.from({ length: 3 }).map((_, idx) => (
+                <div key={`skeleton-${idx}`} className="bg-white rounded-3xl overflow-hidden shadow-md border border-slate-200/80 flex flex-col animate-pulse">
+                  <div className="w-full aspect-[16/10] bg-slate-200"></div>
+                  <div className="p-6 flex-grow flex flex-col justify-between">
+                    <div className="grid grid-cols-2 gap-3 mb-4 py-3.5 px-4 bg-slate-100 rounded-2xl border border-slate-100">
+                      <div className="h-4 bg-slate-200 rounded w-full"></div>
+                      <div className="h-4 bg-slate-200 rounded w-full"></div>
+                    </div>
+                    <div className="pt-2 border-t border-slate-100">
+                      <div className="flex items-center justify-between gap-4 mb-4">
+                        <div>
+                          <div className="h-2 bg-slate-200 rounded w-16 mb-2"></div>
+                          <div className="h-6 bg-slate-200 rounded w-20"></div>
+                        </div>
+                        <div className="h-6 bg-slate-200 rounded-full w-24"></div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2.5">
+                        <div className="h-10 bg-slate-200 rounded-xl"></div>
+                        <div className="h-10 bg-emerald-200/50 rounded-xl"></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))
+            ) : (
+              vehicles.map((v) => (
+                <VisualDiv id={`vehicle_card_${v.id}`} key={v.id} className="bg-white rounded-3xl overflow-hidden shadow-md border border-slate-200/80 hover:shadow-2xl hover:border-emerald-400 transition-all duration-300 flex flex-col group transform hover:-translate-y-1.5">
                 
                 {/* Image Header with uniform aspect ratio & dark gradient overlay */}
                 <Link to={`/routes-rates?vehicle=${v.id}`} className="block aspect-[16/10] relative overflow-hidden bg-slate-900 cursor-pointer">
-                  <VisualImage width="600" height="375" loading="lazy" id={`vehicle_img_${v.id}`} src={getVehicleImageByName(v.name, v.imageUrl)} alt={v.name} className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-700 opacity-95 group-hover:opacity-100" />
+                  <VisualImage width="600" height="375" id={`vehicle_img_${v.id}`} src={getVehicleImageByName(v.name, v.imageUrl)} alt={v.name} className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-700 opacity-95 group-hover:opacity-100" />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent"></div>
                   
                   {/* Model Tag */}
@@ -788,7 +824,7 @@ export default function Home() {
 
                 </div>
               </VisualDiv>
-            ))}
+            )))}
           </div>
           
           <div className="text-center">

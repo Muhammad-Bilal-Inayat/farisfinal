@@ -211,23 +211,8 @@ export default function BookingStatusModal() {
                 </button>
               </div>
 
-              {/* Sample demo ID hint */}
-              {!booking && (
-                <div className="flex items-center justify-between text-[11px] text-gray-500 mt-2 px-1">
-                  <span>{isAr ? 'تريد تجربة الاستعلام؟' : 'Need a sample booking ID?'}</span>
-                  <button 
-                    type="button"
-                    onClick={() => {
-                      setSearchId('FUV-2026-88901');
-                      performLookup('FUV-2026-88901');
-                    }}
-                    className="text-[#05513F] font-bold hover:underline flex items-center gap-1 cursor-pointer"
-                  >
-                    <Sparkles size={12} className="text-amber-500" />
-                    <span>{isAr ? 'استخدم تجريبي: FUV-2026-88901' : 'Try Demo: FUV-2026-88901'}</span>
-                  </button>
-                </div>
-              )}
+             
+           
             </form>
 
             {/* Error Display */}

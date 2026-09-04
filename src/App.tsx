@@ -1,6 +1,7 @@
 import { VisualEditorProvider } from './components/VisualEditorContext';
 import { BookingTrackerProvider } from './context/BookingTrackerContext';
-import BookingStatusModal from './components/BookingStatusModal';
+import DeferredRender from './components/DeferredRender';
+
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
@@ -8,10 +9,13 @@ import BookingStatusModal from './components/BookingStatusModal';
 import React, { Suspense } from 'react';
 import { Routes, Route } from 'react-router-dom';
 import Header from './components/Header';
-import Footer from './components/Footer';
-import FloatingWhatsApp from './components/FloatingWhatsApp';
-import MobileBottomBar from './components/MobileBottomBar';
-import PromoPopup from './components/PromoPopup';
+
+// Lazy load non-critical UI components aggressively
+const Footer = React.lazy(() => import('./components/Footer'));
+const FloatingWhatsApp = React.lazy(() => import('./components/FloatingWhatsApp'));
+const MobileBottomBar = React.lazy(() => import('./components/MobileBottomBar'));
+const PromoPopup = React.lazy(() => import('./components/PromoPopup'));
+const BookingStatusModal = React.lazy(() => import('./components/BookingStatusModal'));
 
 import ScrollToTop from './components/ScrollToTop';
 import TopProgressBar from './components/TopProgressBar';
@@ -83,11 +87,18 @@ export default function App() {
             </Routes>
           </Suspense>
         </main>
-        <Footer />
-        <FloatingWhatsApp />
-        <MobileBottomBar />
-        <PromoPopup />
-        <BookingStatusModal />
+        
+        {/* Aggressive chunking: defer rendering of non-critical UI until scroll or idle timeout */}
+        <DeferredRender fallbackDelay={4000}>
+          <Suspense fallback={null}>
+            <Footer />
+            <FloatingWhatsApp />
+            <MobileBottomBar />
+            <PromoPopup />
+            <BookingStatusModal />
+          </Suspense>
+        </DeferredRender>
+        
       </div>
     </BookingTrackerProvider>
   );

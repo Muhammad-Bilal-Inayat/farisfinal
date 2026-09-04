@@ -58,7 +58,7 @@ export default function RoutesRates() {
       fetch('/api/routes', { cache: 'no-store' }).then(r => r.json())
     ]).then(([vehicles, routes]) => {
       if (Array.isArray(vehicles) && Array.isArray(routes)) {
-        // Sort vehicles ensuring GMC XL 2025 is first
+        // Sort vehicles ensuring FORD EXPEDITION is first
         const sortedVehicles = [...vehicles].sort((a: any, b: any) => {
           if (a.name?.toLowerCase().includes('gmc')) return -1;
           if (b.name?.toLowerCase().includes('gmc')) return 1;
@@ -368,7 +368,7 @@ export default function RoutesRates() {
           name="description" 
           content={isAr 
             ? 'اطلع على قائمة الأسعار الشاملة والمسارات المعتمدة لتنقلات العمرة والمطارات مع جمس 2025 وسياراتنا الفاخرة.'
-            : 'Explore full fleet fixed rates & routes for Umrah VIP transfers including GMC XL 2025, Toyota Camry, Staria and private buses.'
+            : 'Explore full fleet fixed rates & routes for Umrah VIP transfers including FORD EXPEDITION, FORD TAURUS, Staria and private buses.'
           } 
         />
       </Helmet>
