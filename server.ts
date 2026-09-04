@@ -296,6 +296,7 @@ async function ensureTablesExist() {
     `);
 
     // Schema alterations for compatibility
+    try { await db.run(sql`ALTER TABLE vehicles ADD COLUMN updated_at TEXT;`); } catch (e) {}
     try { await db.run(sql`ALTER TABLE trip_rates ADD COLUMN price_max INTEGER;`); } catch (e) {}
     try { await db.run(sql`ALTER TABLE bookings ADD COLUMN price_max INTEGER;`); } catch (e) {}
     try { await db.run(sql`ALTER TABLE bookings ADD COLUMN driver_name TEXT;`); } catch (e) {}
@@ -487,14 +488,13 @@ async function startServer() {
         { name: "BUS 2025", year: 2025, passengerCapacity: 50, luggageCapacity: 55, category: "bus", startingPrice: 400, imageUrl: "/images/fleet/bus-2025.jpg", features: "50 Reclining Seats, Underfloor Luggage, WC, Group Tour", description: "Full-size VIP coach bus for Umrah delegations" }
       ];
 
-      if (existingVehicles.length === 0) {
-        for (const vData of initialVehicles) {
+      for (const vData of initialVehicles) {
+        const existing = existingVehicles.find(v => v.name === vData.name);
+        if (!existing) {
           const inserted = await db.insert(vehicles).values(vData).returning().get();
           vehicleMap.set(vData.name, inserted.id);
-        }
-      } else {
-        for (const v of existingVehicles) {
-          vehicleMap.set(v.name, v.id);
+        } else {
+          vehicleMap.set(existing.name, existing.id);
         }
       }
 
@@ -1694,7 +1694,8 @@ async function startServer() {
         price: Number(bookingData.price) || 0,
         passengers: Number(bookingData.passengers) || 1,
         luggage: Number(bookingData.luggage) || 0,
-        createdAt: new Date().toISOString()
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
       };
 
       const inserted = await db.insert(bookings).values(newBooking).returning().get();
@@ -1814,16 +1815,43 @@ async function startServer() {
   });
 
   app.put("/api/admin/bookings/:id", verifyAdmin, async (req, res) => {
+    const startTime = Date.now();
     try {
-      const updateData = { ...req.body, updatedAt: new Date().toISOString() };
+      const clientUpdatedAt = req.body.updatedAt;
+      const now = new Date().toISOString();
+      const updateData = { ...req.body, updatedAt: now };
       if (updateData.id) delete updateData.id;
       if (updateData.price) updateData.price = Number(updateData.price);
       if (updateData.passengers) updateData.passengers = Number(updateData.passengers);
       if (updateData.luggage) updateData.luggage = Number(updateData.luggage);
       if (updateData.vehicleId) updateData.vehicleId = Number(updateData.vehicleId);
 
-      await db.update(bookings).set(updateData).where(eq(bookings.id, Number(req.params.id)));
-      res.json({ success: true });
+      let result;
+      if (clientUpdatedAt) {
+        result = await db.update(bookings)
+          .set(updateData)
+          .where(and(eq(bookings.id, Number(req.params.id)), eq(bookings.updatedAt, clientUpdatedAt)))
+          .returning()
+          .get();
+        if (!result) {
+          const currentBooking = await db.select().from(bookings).where(eq(bookings.id, Number(req.params.id))).get();
+          if (currentBooking && currentBooking.updatedAt !== clientUpdatedAt) {
+            await db.insert(booking_sync_logs).values({
+              bookingId: currentBooking.bookingId || String(req.params.id),
+              action: 'UPDATE_BOOKING',
+              status: 'OVERWRITE_CONFLICT',
+              payload: JSON.stringify({ attemptedUpdate: updateData, clientVersion: clientUpdatedAt, dbVersion: currentBooking.updatedAt }),
+              errorDetails: 'Optimistic locking failure: record modified by another user',
+              latencyMs: Date.now() - startTime,
+              createdAt: now
+            });
+            return res.status(409).json({ error: "Conflict: The booking data was modified by another user. Please refresh and try again.", currentData: currentBooking });
+          }
+        }
+      } else {
+        result = await db.update(bookings).set(updateData).where(eq(bookings.id, Number(req.params.id))).returning().get();
+      }
+      res.json({ success: true, booking: result });
     } catch (error) { res.status(500).json({ error: "Error updating booking" }); }
   });
 
@@ -1957,6 +1985,7 @@ async function startServer() {
       if (payload.startingPrice) payload.startingPrice = Number(payload.startingPrice);
       if (payload.year) payload.year = Number(payload.year);
       if (payload.displayOrder !== undefined) payload.displayOrder = Number(payload.displayOrder);
+      payload.updatedAt = new Date().toISOString();
 
       const inserted = await db.insert(vehicles).values(payload).returning().get();
       
@@ -1986,14 +2015,39 @@ async function startServer() {
     try {
       const vehicleId = Number(req.params.id);
       const payload = { ...req.body };
+      const clientUpdatedAt = payload.updatedAt;
+      
       delete payload.id; // avoid updating primary key
+      
       if (payload.passengerCapacity !== undefined) payload.passengerCapacity = Number(payload.passengerCapacity);
       if (payload.luggageCapacity !== undefined) payload.luggageCapacity = Number(payload.luggageCapacity);
       if (payload.startingPrice !== undefined) payload.startingPrice = Number(payload.startingPrice);
       if (payload.year !== undefined) payload.year = Number(payload.year);
       if (payload.displayOrder !== undefined) payload.displayOrder = Number(payload.displayOrder);
 
-      await db.update(vehicles).set(payload).where(eq(vehicles.id, vehicleId));
+      const now = new Date().toISOString();
+      payload.updatedAt = now;
+
+      let result;
+      if (clientUpdatedAt) {
+        // Optimistic locking: check if the database version matches the client's version
+        result = await db.update(vehicles)
+          .set(payload)
+          .where(and(eq(vehicles.id, vehicleId), eq(vehicles.updatedAt, clientUpdatedAt)))
+          .returning()
+          .get();
+          
+        if (!result) {
+          // If the update affected 0 rows, either the vehicle doesn't exist or it was modified by someone else
+          const currentVehicle = await db.select().from(vehicles).where(eq(vehicles.id, vehicleId)).get();
+          if (currentVehicle && currentVehicle.updatedAt !== clientUpdatedAt) {
+            return res.status(409).json({ error: "Conflict: The vehicle data was modified by another user. Please refresh and try again.", currentData: currentVehicle });
+          }
+        }
+      } else {
+        // Fallback for older client payload without optimistic locking
+        result = await db.update(vehicles).set(payload).where(eq(vehicles.id, vehicleId)).returning().get();
+      }
 
       // Record audit log
       const adminUser = (req as any).user;
@@ -2005,12 +2059,12 @@ async function startServer() {
         recordId: String(vehicleId),
         changes: JSON.stringify(payload),
         ipAddress: req.ip || String(req.headers['x-forwarded-for'] || ''),
-        createdAt: new Date().toISOString()
+        createdAt: now
       });
 
       invalidateCacheTag("vehicles:");
       invalidateCacheTag("routes:");
-      res.json({ success: true });
+      res.json({ success: true, vehicle: result });
     } catch (error) { 
       console.error("Error updating vehicle:", error);
       res.status(500).json({ error: "Error updating vehicle" }); 

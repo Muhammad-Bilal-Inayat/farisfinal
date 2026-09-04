@@ -47,6 +47,7 @@ export const vehicles = sqliteTable('vehicles', {
   category: text('category'),
   status: text('status').default('active'),
   displayOrder: integer('display_order').default(0),
+  updatedAt: text('updated_at'),
 });
 
 export const trip_routes = sqliteTable('trip_routes', {

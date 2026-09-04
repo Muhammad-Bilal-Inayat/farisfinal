@@ -130,8 +130,22 @@ export default function ManageVehicles() {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const fetchVehicles = async () => {
-    setLoading(true);
+  const fetchVehicles = async (isBackground = false) => {
+    if (!isBackground) {
+      const cached = sessionStorage.getItem('vehicles_cache');
+      if (cached) {
+        try {
+          const parsed = JSON.parse(cached);
+          if (Array.isArray(parsed)) {
+            setVehicles(parsed);
+            setLoading(false);
+          }
+        } catch (e) {}
+      } else {
+        setLoading(true);
+      }
+    }
+
     const token = localStorage.getItem('adminToken');
     try {
       let data: any[] | null = null;
@@ -159,14 +173,18 @@ export default function ManageVehicles() {
         }
       }
 
-      setVehicles(Array.isArray(data) ? data : []);
+      const finalData = Array.isArray(data) ? data : [];
+      setVehicles(finalData);
+      sessionStorage.setItem('vehicles_cache', JSON.stringify(finalData));
     } catch (err) {
       console.error('Failed to load vehicles:', err);
       // Final attempt fallback
       try {
         const fallbackRes = await fetch('/api/vehicles', { cache: 'no-store' });
         const fallbackData = await fallbackRes.json();
-        setVehicles(Array.isArray(fallbackData) ? fallbackData : []);
+        const finalFallback = Array.isArray(fallbackData) ? fallbackData : [];
+        setVehicles(finalFallback);
+        sessionStorage.setItem('vehicles_cache', JSON.stringify(finalFallback));
       } catch (e) {
         setVehicles([]);
       }
@@ -177,6 +195,13 @@ export default function ManageVehicles() {
 
   useEffect(() => { 
     fetchVehicles(); 
+    const handleRefresh = () => fetchVehicles(true);
+    window.addEventListener('faris_vehicles_updated', handleRefresh);
+    window.addEventListener('focus', handleRefresh);
+    return () => {
+      window.removeEventListener('faris_vehicles_updated', handleRefresh);
+      window.removeEventListener('focus', handleRefresh);
+    };
   }, []);
 
   const showToast = (message: string, type: 'success' | 'error' = 'success') => {
@@ -276,7 +301,8 @@ export default function ManageVehicles() {
       imageUrl: current.imageUrl?.trim() || '',
       features: current.features?.trim() || '',
       description: current.description?.trim() || '',
-      displayOrder: Number(current.displayOrder) || 0
+      displayOrder: Number(current.displayOrder) || 0,
+      updatedAt: current.updatedAt // pass client version for optimistic lock
     };
 
     if (current.id) {
@@ -298,12 +324,19 @@ export default function ManageVehicles() {
         window.location.reload();
         return;
       }
+      
+      if (res.status === 409) {
+        const errorData = await res.json();
+        showToast(errorData.error || (isAr ? "تعارض: تم تعديل هذه المركبة بواسطة مستخدم آخر." : "Conflict: Vehicle modified by another user."), 'error');
+        fetchVehicles(true);
+        return;
+      }
 
       const result = await res.json();
       if (res.ok && result.success) {
         showToast(isAr ? 'تم حفظ ومزامنة بيانات السيارة بنجاح وتحديث الموقع' : 'Vehicle details saved and synced to public site!');
         setIsEditing(false);
-        fetchVehicles();
+        fetchVehicles(true);
         notifyVehicleUpdated();
       } else {
         showToast(result.error || (isAr ? 'فشل حفظ المركبة' : 'Failed to save vehicle'), 'error');
@@ -471,7 +504,7 @@ export default function ManageVehicles() {
 
             {/* Refresh Button */}
             <button
-              onClick={fetchVehicles}
+              onClick={() => fetchVehicles(true)}
               disabled={loading}
               className="p-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer shadow-2xs"
               title={isAr ? 'تحديث القائمة' : 'Refresh List'}

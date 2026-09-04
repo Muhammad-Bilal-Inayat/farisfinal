@@ -32,38 +32,73 @@ export default function BookingsAdmin() {
   const [actionSuccess, setActionSuccess] = useState<string | null>(null);
   const [assigningDriverId, setAssigningDriverId] = useState<string>('');
 
-  const fetchBookingsAndVehicles = async () => {
+  const fetchBookingsAndVehicles = async (isBackground = false) => {
     const token = localStorage.getItem('adminToken');
     if (!token) return;
-    try {
-      const queryParams = new URLSearchParams({
-        status: statusFilter,
-        search: search.trim(),
-        startDate,
-        endDate,
-        page: page.toString(),
-        limit: limit.toString()
-      });
+    
+    const queryParams = new URLSearchParams({
+      status: statusFilter,
+      search: search.trim(),
+      startDate,
+      endDate,
+      page: page.toString(),
+      limit: limit.toString()
+    });
+    const cacheKey = `bookings_cache_${queryParams.toString()}`;
 
+    // Stale-While-Revalidate: Show cached data immediately if not a background refresh
+    if (!isBackground) {
+      const cached = sessionStorage.getItem(cacheKey);
+      if (cached) {
+        try {
+          const parsed = JSON.parse(cached);
+          if (parsed.bookings) setBookings(parsed.bookings);
+          if (parsed.vehicles) setVehicles(parsed.vehicles);
+          if (parsed.drivers) setDrivers(parsed.drivers);
+          setLoading(false);
+        } catch (e) {
+          // ignore cache parse errors
+        }
+      } else {
+        setLoading(true);
+      }
+    }
+
+    try {
       const [bRes, vRes, dRes] = await Promise.all([
         fetch(`/api/admin/bookings?${queryParams.toString()}`, { headers: { 'Authorization': `Bearer ${token}` } }),
         fetch('/api/admin/vehicles', { headers: { 'Authorization': `Bearer ${token}` } }),
         fetch('/api/admin/drivers', { headers: { 'Authorization': `Bearer ${token}` } })
       ]);
+      
+      let newBookings = bookings;
+      let newVehicles = vehicles;
+      let newDrivers = drivers;
+
       if (bRes.ok) { 
         const d = await bRes.json();
         if (Array.isArray(d)) {
+          newBookings = d;
           setBookings(d);
           setTotalRecords(d.length);
           setTotalPages(1);
         } else if (d && Array.isArray(d.bookings)) {
+          newBookings = d.bookings;
           setBookings(d.bookings);
           setTotalRecords(d.total || 0);
           setTotalPages(d.totalPages || 1);
         }
       }
-      if (vRes.ok) { const d = await vRes.json(); setVehicles(Array.isArray(d) ? d : []); }
-      if (dRes.ok) { const d = await dRes.json(); setDrivers(Array.isArray(d) ? d : []); }
+      if (vRes.ok) { const d = await vRes.json(); newVehicles = Array.isArray(d) ? d : []; setVehicles(newVehicles); }
+      if (dRes.ok) { const d = await dRes.json(); newDrivers = Array.isArray(d) ? d : []; setDrivers(newDrivers); }
+
+      // Update cache
+      sessionStorage.setItem(cacheKey, JSON.stringify({
+        bookings: newBookings,
+        vehicles: newVehicles,
+        drivers: newDrivers
+      }));
+
     } catch (e) {
       console.error(e);
     } finally {
@@ -75,10 +110,10 @@ export default function BookingsAdmin() {
     fetchBookingsAndVehicles();
 
     // Auto-refresh every 12 seconds so new website orders appear in real-time
-    const interval = setInterval(fetchBookingsAndVehicles, 12000);
+    const interval = setInterval(() => fetchBookingsAndVehicles(true), 12000);
 
     // Also refresh immediately when booking event fires or tab gains focus
-    const handleSync = () => fetchBookingsAndVehicles();
+    const handleSync = () => fetchBookingsAndVehicles(true);
     window.addEventListener('faris_bookings_updated', handleSync);
     window.addEventListener('focus', handleSync);
 
@@ -96,17 +131,24 @@ export default function BookingsAdmin() {
 
   const updateStatus = async (id: number, status: string) => {
     try {
+      const targetBooking = bookings.find(b => b.id === id);
       const res = await fetch(`/api/admin/bookings/${id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${localStorage.getItem('adminToken')}`
         },
-        body: JSON.stringify({ status })
+        body: JSON.stringify({ status, updatedAt: targetBooking?.updatedAt })
       });
+      if (res.status === 409) {
+        const errorData = await res.json();
+        alert(errorData.error || "Conflict: Data was modified by another user.");
+        fetchBookingsAndVehicles(true);
+        return;
+      }
       if (res.ok) {
         triggerToast(isAr ? `تم تحديث حالة الحجز إلى: ${status}` : `Booking status updated to ${status}`);
-        fetchBookingsAndVehicles();
+        fetchBookingsAndVehicles(true);
         if (selectedBooking && selectedBooking.id === id) {
           setSelectedBooking({ ...selectedBooking, status });
         }
@@ -126,7 +168,7 @@ export default function BookingsAdmin() {
       if (res.ok) {
         triggerToast(isAr ? 'تم حذف الحجز بنجاح' : 'Booking deleted successfully');
         if (selectedBooking?.id === id) setSelectedBooking(null);
-        fetchBookingsAndVehicles();
+        fetchBookingsAndVehicles(true);
       }
     } catch (e) {
       alert("Failed to delete booking");
@@ -144,10 +186,16 @@ export default function BookingsAdmin() {
         },
         body: JSON.stringify(editForm)
       });
+      if (res.status === 409) {
+        const errorData = await res.json();
+        alert(errorData.error || "Conflict: Data was modified by another user.");
+        fetchBookingsAndVehicles(true);
+        return;
+      }
       if (res.ok) {
         triggerToast(isAr ? 'تم حفظ تعديلات الحجز بنجاح' : 'Booking updated successfully');
         setIsEditing(false);
-        fetchBookingsAndVehicles();
+        fetchBookingsAndVehicles(true);
         if (selectedBooking?.id === editForm.id) {
           setSelectedBooking({ ...selectedBooking, ...editForm });
         }
@@ -181,10 +229,37 @@ export default function BookingsAdmin() {
 
   const getCleanPhone = (phoneStr: string) => {
     if (!phoneStr) return '';
-    let cleaned = String(phoneStr).replace(/[^0-9]/g, '');
-    if (cleaned.startsWith('05') && cleaned.length === 10) {
-      cleaned = '966' + cleaned.slice(1);
+    let cleaned = String(phoneStr).replace(/[^0-9+]/g, ''); // Allow + initially
+    
+    // If it starts with +, strip it for wa.me format
+    if (cleaned.startsWith('+')) {
+      cleaned = cleaned.substring(1);
     }
+    
+    // If it starts with 00, replace with nothing
+    if (cleaned.startsWith('00')) {
+      cleaned = cleaned.substring(2);
+    }
+
+    // Standardize Saudi local numbers (05xxxxxxxx -> 9665xxxxxxxx)
+    if (cleaned.startsWith('05') && cleaned.length === 10) {
+      cleaned = '966' + cleaned.substring(1);
+    }
+    
+    // Standardize Saudi local numbers starting with 5 (5xxxxxxxx -> 9665xxxxxxxx)
+    if (cleaned.startsWith('5') && cleaned.length === 9) {
+      cleaned = '966' + cleaned;
+    }
+
+    // Basic heuristic for common missing country codes (assuming Saudi if 9 or 10 digits and no obvious country code)
+    if (cleaned.length === 9 || cleaned.length === 10) {
+       // if we haven't already prefixed it
+       if (!cleaned.startsWith('966')) {
+           // We might want to be careful here, but for Umrah it's very often KSA
+           // Let's leave it as is if it doesn't match the standard 05 or 5 KSA format to avoid breaking international numbers that happen to be 9-10 digits.
+       }
+    }
+
     return cleaned;
   };
 
@@ -590,17 +665,35 @@ export default function BookingsAdmin() {
                             <UserCheck size={13} className="text-emerald-700 shrink-0" />
                             <span>{b.driverNameSnapshot || b.driverName}</span>
                           </div>
-                          <div className="text-[11px] text-slate-600 font-mono">
-                            {b.driverPhoneSnapshot || b.driverPhone || '-'}
-                          </div>
+                          {(() => {
+                            const { raw, clean } = getDriverPhone(b);
+                            if (!raw) return <div className="text-[11px] text-slate-600 font-mono">-</div>;
+                            return (
+                              <div className="text-[11px] text-slate-600 font-mono flex items-center gap-1">
+                                {clean ? (
+                                  <a
+                                    href={`https://wa.me/${clean}`}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    title={isAr ? 'مراسلة السائق عبر واتساب' : 'WhatsApp Driver'}
+                                    className="font-bold text-emerald-700 hover:text-emerald-900 hover:underline flex items-center gap-1"
+                                  >
+                                    <span>{raw}</span>
+                                  </a>
+                                ) : (
+                                  <span>{raw}</span>
+                                )}
+                              </div>
+                            );
+                          })()}
                           <button
                             type="button"
                             onClick={() => handleWhatsAppDriver(b)}
-                            title={isAr ? 'مراسلة السائق عبر واتساب' : 'WhatsApp Driver'}
+                            title={isAr ? 'إرسال تفاصيل الرحلة للسائق' : 'Send Trip Details to Driver'}
                             className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-800 hover:bg-emerald-100 border border-emerald-200 cursor-pointer transition-colors shadow-2xs"
                           >
                             <MessageCircle size={11} className="text-emerald-700" />
-                            <span>{isAr ? 'واتساب السائق' : 'WhatsApp Driver'}</span>
+                            <span>{isAr ? 'إرسال التفاصيل' : 'Send Details'}</span>
                           </button>
                         </div>
                       ) : (
@@ -816,8 +909,32 @@ export default function BookingsAdmin() {
                     </button>
                   </div>
                   <div><strong className="text-slate-800">{isAr ? 'الاسم:' : 'Name:'}</strong> {selectedBooking.customerName || 'N/A'}</div>
-                  <div><strong className="text-slate-800">{isAr ? 'الهاتف:' : 'Phone:'}</strong> {selectedBooking.customerPhone || selectedBooking.phone || 'N/A'}</div>
-                  <div><strong className="text-slate-800">{isAr ? 'الواتساب:' : 'WhatsApp:'}</strong> {selectedBooking.whatsapp || selectedBooking.customerPhone || selectedBooking.phone || 'N/A'}</div>
+                  <div>
+                    <strong className="text-slate-800">{isAr ? 'الهاتف:' : 'Phone:'}</strong>{' '}
+                    {(() => {
+                      const phone = selectedBooking.customerPhone || selectedBooking.phone;
+                      if (!phone) return 'N/A';
+                      const { clean, raw } = getCustomerPhone({ phone });
+                      return clean ? (
+                        <a href={`https://wa.me/${clean}`} target="_blank" rel="noreferrer" className="text-emerald-700 font-bold hover:underline">
+                          {raw}
+                        </a>
+                      ) : raw;
+                    })()}
+                  </div>
+                  <div>
+                    <strong className="text-slate-800">{isAr ? 'الواتساب:' : 'WhatsApp:'}</strong>{' '}
+                    {(() => {
+                      const wa = selectedBooking.whatsapp || selectedBooking.customerPhone || selectedBooking.phone;
+                      if (!wa) return 'N/A';
+                      const { clean, raw } = getCustomerPhone({ whatsapp: wa });
+                      return clean ? (
+                        <a href={`https://wa.me/${clean}`} target="_blank" rel="noreferrer" className="text-emerald-700 font-bold hover:underline">
+                          {raw}
+                        </a>
+                      ) : raw;
+                    })()}
+                  </div>
                   <div><strong className="text-slate-800">{isAr ? 'البريد:' : 'Email:'}</strong> {selectedBooking.customerEmail || 'N/A'}</div>
                 </div>
 

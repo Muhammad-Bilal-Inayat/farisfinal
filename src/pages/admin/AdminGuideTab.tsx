@@ -1,1 +1,159 @@
-import React from 'react'; import { HelpCircle, BookOpen, Edit3, Database, ShieldCheck, RefreshCw, Terminal, CheckCircle2 } from 'lucide-react'; import { useTranslation } from 'react-i18next'; export default function AdminGuideTab() { const { i18n } = useTranslation(); const isAr = i18n.language === 'ar'; return ( <div className="space-y-6 max-w-5xl mx-auto"> {/* Header */} <div className="bg-white p-6 sm:p-8 rounded-3xl shadow-xs border border-slate-200"> <div className="flex items-center gap-3 mb-3"> <div className="w-12 h-12 rounded-2xl bg-[var(--color-saudi-green)]/10 text-[var(--color-saudi-green)] flex items-center justify-center font-bold"> <BookOpen size={26} /> </div> <div> <h2 className="text-xl sm:text-2xl font-black text-slate-900"> {isAr ? 'دليل إدارة لوحة التحكم وتعديل البيانات (Admin Guide & Help)' : 'Admin User Guide & Manual Edits Reference'} </h2> <p className="text-xs text-slate-500 mt-0.5"> {isAr ? 'تعليمات خطوة بخطوة حول كيفية إجراء التعديلات، تحديث الأسطول، وحل مشاكل البيانات.' : 'Step-by-step instructions on performing manual edits, updating fleet listings, and troubleshooting data persistence.'} </p> </div> </div> </div> {/* Guide Sections */} <div className="space-y-6"> {/* Section 1: Fleet & Vehicle Updates */} <div className="bg-white rounded-3xl p-6 sm:p-8 shadow-xs border border-slate-200 space-y-4"> <div className="flex items-center gap-3 text-slate-900 border-b border-slate-100 pb-3"> <div className="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold text-xs">1</div> <h3 className="text-base font-extrabold">{isAr ? 'كيفية تعديل أو إضافة مركبات جديدة للأسطول' : 'How to Add or Edit Fleet Vehicles'}</h3> </div> <ol className="list-decimal list-inside space-y-2.5 text-xs text-slate-700 leading-relaxed pl-2"> <li><strong className="text-slate-900">الوصول للوحة التحكم:</strong> انتقل إلى قسم <span className="font-bold text-[var(--color-saudi-green)]">المركبات (Vehicles)</span> في القائمة الجانبية.</li> <li><strong className="text-slate-900">إضافة مركبة جديدة:</strong> انقر على زر <span className="font-bold">"إضافة مركبة جديدة"</span> واملأ الاسم (مثال: GMC Yukon XL 2025)، السعة، الأمتعة، والصورة.</li> <li><strong className="text-slate-900">حفظ التغييرات:</strong> انقر على حفظ. سيظهر مؤشر المزامنة السحابية (Approved & Synced) ليعلمك أن البيانات تم حفظها فوراً في قاعدة البيانات المستدامة.</li> <li><strong className="text-slate-900">منع فقدان البيانات:</strong> تم ضبط النظام بحيث لا يتم إعادة كتابة الأسطول أو مسحه عند إعادة تشغيل الخادم، مما يضمن بقاء تعديلاتك بشكل دائم.</li> </ol> </div> {/* Section 2: Manual Database Edits */} <div className="bg-white rounded-3xl p-6 sm:p-8 shadow-xs border border-slate-200 space-y-4"> <div className="flex items-center gap-3 text-slate-900 border-b border-slate-100 pb-3"> <div className="w-8 h-8 rounded-xl bg-emerald-50 text-[var(--color-saudi-green)] flex items-center justify-center font-bold text-xs">2</div> <h3 className="text-base font-extrabold">{isAr ? 'إجراء التعديلات اليدوية على قاعدة البيانات' : 'Performing Manual Database Edits'}</h3> </div> <p className="text-xs text-slate-600 leading-relaxed"> إذا أردت فحص أو تعديل قاعدة البيانات (SQLite) مباشرة على الخادم: </p> <div className="bg-slate-900 text-emerald-300 font-mono text-xs p-4 rounded-2xl border border-slate-800 space-y-2"> <div className="text-slate-400 text-[11px]"># Open local sqlite database:</div> <div>sqlite3 local.db</div> <div className="text-slate-400 text-[11px] mt-2"># View vehicles:</div> <div>SELECT id, name, starting_price FROM vehicles;</div> </div> </div> {/* Section 3: Audit Logs & Security */} <div className="bg-white rounded-3xl p-6 sm:p-8 shadow-xs border border-slate-200 space-y-4"> <div className="flex items-center gap-3 text-slate-900 border-b border-slate-100 pb-3"> <div className="w-8 h-8 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center font-bold text-xs">3</div> <h3 className="text-base font-extrabold">{isAr ? 'تتبع السجلات الأمنية (Audit Logs & Timeline)' : 'Tracking Audit Logs & Security Compliance'}</h3> </div> <p className="text-xs text-slate-600 leading-relaxed"> قسم <strong className="text-slate-900 font-bold">الخط الزمني (Audit Timeline)</strong> و<strong className="text-slate-900 font-bold">قائمة صحة النظام (System Health)</strong> يتيحان لك مراقبة: </p> <ul className="list-disc list-inside space-y-2 text-xs text-slate-700 pl-2"> <li>اسم المشرف المسؤول عن كل تعديل.</li> <li>توقيت إضافة أو تعديل أية مركبة بدقة عالية.</li> <li>حالة قواعد الأمان في فايربيز (Firestore Security Rules) للتأكد من منع غير المصرح لهم من التعديل.</li> </ul> </div> </div> </div> ); }
+import React from "react";
+import {
+  HelpCircle,
+  BookOpen,
+  Edit3,
+  Database,
+  ShieldCheck,
+  RefreshCw,
+  Terminal,
+  CheckCircle2,
+} from "lucide-react";
+import { useTranslation } from "react-i18next";
+export default function AdminGuideTab() {
+  const { i18n } = useTranslation();
+  const isAr = i18n.language === "ar";
+  return (
+    <div className="space-y-6 max-w-5xl mx-auto">
+      {" "}
+      {/* Header */}{" "}
+      <div className="bg-white p-6 sm:p-8 rounded-3xl shadow-xs border border-slate-200">
+        {" "}
+        <div className="flex items-center gap-3 mb-3">
+          {" "}
+          <div className="w-12 h-12 rounded-2xl bg-[var(--color-saudi-green)]/10 text-[var(--color-saudi-green)] flex items-center justify-center font-bold">
+            {" "}
+            <BookOpen size={26} />{" "}
+          </div>{" "}
+          <div>
+            {" "}
+            <h2 className="text-xl sm:text-2xl font-black text-slate-900">
+              {" "}
+              {isAr
+                ? "دليل إدارة لوحة التحكم وتعديل البيانات (Admin Guide & Help)"
+                : "Admin User Guide & Manual Edits Reference"}{" "}
+            </h2>{" "}
+            <p className="text-xs text-slate-500 mt-0.5">
+              {" "}
+              {isAr
+                ? "تعليمات خطوة بخطوة حول كيفية إجراء التعديلات، تحديث الأسطول، وحل مشاكل البيانات."
+                : "Step-by-step instructions on performing manual edits, updating fleet listings, and troubleshooting data persistence."}{" "}
+            </p>{" "}
+          </div>{" "}
+        </div>{" "}
+      </div>{" "}
+      {/* Guide Sections */}{" "}
+      <div className="space-y-6">
+        {" "}
+        {/* Section 1: Fleet & Vehicle Updates */}{" "}
+        <div className="bg-white rounded-3xl p-6 sm:p-8 shadow-xs border border-slate-200 space-y-4">
+          {" "}
+          <div className="flex items-center gap-3 text-slate-900 border-b border-slate-100 pb-3">
+            {" "}
+            <div className="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold text-xs">
+              1
+            </div>{" "}
+            <h3 className="text-base font-extrabold">
+              {isAr
+                ? "كيفية تعديل أو إضافة مركبات جديدة للأسطول"
+                : "How to Add or Edit Fleet Vehicles"}
+            </h3>{" "}
+          </div>{" "}
+          <ol className="list-decimal list-inside space-y-2.5 text-xs text-slate-700 leading-relaxed pl-2">
+            {" "}
+            <li>
+              <strong className="text-slate-900">الوصول للوحة التحكم:</strong>{" "}
+              انتقل إلى قسم{" "}
+              <span className="font-bold text-[var(--color-saudi-green)]">
+                المركبات (Vehicles)
+              </span>{" "}
+              في القائمة الجانبية.
+            </li>{" "}
+            <li>
+              <strong className="text-slate-900">إضافة مركبة جديدة:</strong>{" "}
+              انقر على زر <span className="font-bold">"إضافة مركبة جديدة"</span>{" "}
+              واملأ الاسم (مثال: GMC Yukon XL 2025)، السعة، الأمتعة، والصورة.
+            </li>{" "}
+            <li>
+              <strong className="text-slate-900">حفظ التغييرات:</strong> انقر
+              على حفظ. سيظهر مؤشر المزامنة السحابية (Approved & Synced) ليعلمك
+              أن البيانات تم حفظها فوراً في قاعدة البيانات المستدامة.
+            </li>{" "}
+            <li>
+              <strong className="text-slate-900">منع فقدان البيانات:</strong> تم
+              ضبط النظام بحيث لا يتم إعادة كتابة الأسطول أو مسحه عند إعادة تشغيل
+              الخادم، مما يضمن بقاء تعديلاتك بشكل دائم.
+            </li>{" "}
+          </ol>{" "}
+        </div>{" "}
+        {/* Section 2: Manual Database Edits */}{" "}
+        <div className="bg-white rounded-3xl p-6 sm:p-8 shadow-xs border border-slate-200 space-y-4">
+          {" "}
+          <div className="flex items-center gap-3 text-slate-900 border-b border-slate-100 pb-3">
+            {" "}
+            <div className="w-8 h-8 rounded-xl bg-emerald-50 text-[var(--color-saudi-green)] flex items-center justify-center font-bold text-xs">
+              2
+            </div>{" "}
+            <h3 className="text-base font-extrabold">
+              {isAr
+                ? "إجراء التعديلات اليدوية على قاعدة البيانات"
+                : "Performing Manual Database Edits"}
+            </h3>{" "}
+          </div>{" "}
+          <p className="text-xs text-slate-600 leading-relaxed">
+            {" "}
+            إذا أردت فحص أو تعديل قاعدة البيانات (SQLite) مباشرة على
+            الخادم:{" "}
+          </p>{" "}
+          <div className="bg-slate-900 text-emerald-300 font-mono text-xs p-4 rounded-2xl border border-slate-800 space-y-2">
+            {" "}
+            <div className="text-slate-400 text-[11px]">
+              # Open local sqlite database:
+            </div>{" "}
+            <div>sqlite3 local.db</div>{" "}
+            <div className="text-slate-400 text-[11px] mt-2">
+              # View vehicles:
+            </div>{" "}
+            <div>SELECT id, name, starting_price FROM vehicles;</div>{" "}
+          </div>{" "}
+        </div>{" "}
+        {/* Section 3: Audit Logs & Security */}{" "}
+        <div className="bg-white rounded-3xl p-6 sm:p-8 shadow-xs border border-slate-200 space-y-4">
+          {" "}
+          <div className="flex items-center gap-3 text-slate-900 border-b border-slate-100 pb-3">
+            {" "}
+            <div className="w-8 h-8 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center font-bold text-xs">
+              3
+            </div>{" "}
+            <h3 className="text-base font-extrabold">
+              {isAr
+                ? "تتبع السجلات الأمنية (Audit Logs & Timeline)"
+                : "Tracking Audit Logs & Security Compliance"}
+            </h3>{" "}
+          </div>{" "}
+          <p className="text-xs text-slate-600 leading-relaxed">
+            {" "}
+            قسم{" "}
+            <strong className="text-slate-900 font-bold">
+              الخط الزمني (Audit Timeline)
+            </strong>{" "}
+            و
+            <strong className="text-slate-900 font-bold">
+              قائمة صحة النظام (System Health)
+            </strong>{" "}
+            يتيحان لك مراقبة:{" "}
+          </p>{" "}
+          <ul className="list-disc list-inside space-y-2 text-xs text-slate-700 pl-2">
+            {" "}
+            <li>اسم المشرف المسؤول عن كل تعديل.</li>{" "}
+            <li>توقيت إضافة أو تعديل أية مركبة بدقة عالية.</li>{" "}
+            <li>
+              حالة قواعد الأمان في فايربيز (Firestore Security Rules) للتأكد من
+              منع غير المصرح لهم من التعديل.
+            </li>{" "}
+          </ul>{" "}
+        </div>{" "}
+      </div>{" "}
+    </div>
+  );
+}
