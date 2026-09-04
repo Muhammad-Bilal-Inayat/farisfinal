@@ -24,6 +24,8 @@ import SystemHealthAdmin from './SystemHealthAdmin';
 import BookingSyncDiagnosticsAdmin from './BookingSyncDiagnosticsAdmin';
 import ArchivedBookingsAdmin from './ArchivedBookingsAdmin';
 import AdminGuideTab from './AdminGuideTab';
+import CodingAdmin from './CodingAdmin';
+import DriverPerformanceAdmin from './DriverPerformanceAdmin';
 import LanguageSwitcher from "../../components/LanguageSwitcher";
 import { Code, Eye, UserCheck, Activity, Clock, HelpCircle, Database } from 'lucide-react';
 import { clearAppCache } from '../../utils/registerServiceWorker';
@@ -288,7 +290,9 @@ export default function AdminDashboard({ initialTab }: { initialTab?: string }) 
       items: [
         { id: 'testimonials', icon: Star, label: i18n.language === 'ar' ? 'تقييمات وآراء العملاء' : 'Guest Reviews & Ratings' },
         { id: 'page_builder', icon: LayoutDashboard, label: i18n.language === 'ar' ? 'بناء الصفحة الرئيسية' : 'Page Builder (Home)' },
-        { id: 'settings', icon: Settings, label: t('admin_settings') }
+        { id: 'settings', icon: Settings, label: t('admin_settings') },
+        { id: 'driver_performance', icon: UserCheck, label: i18n.language === 'ar' ? 'أداء السائقين' : 'Driver Performance' },
+        { id: 'coding', icon: Code, label: i18n.language === 'ar' ? 'البرمجة' : 'Coding' }
       ]
     }
   ];
@@ -511,6 +515,8 @@ export default function AdminDashboard({ initialTab }: { initialTab?: string }) 
             {activeTab === 'customers' && <CustomersAdmin />}
             {activeTab === 'messages' && <MessagesAdmin />}
             {activeTab === 'settings' && <SettingsAdmin />}
+            {activeTab === 'coding' && <CodingAdmin />}
+            {activeTab === 'driver_performance' && <DriverPerformanceAdmin />}
             {activeTab === 'testimonials' && <ReviewsAdmin />}
             {activeTab === 'page_builder' && <PageBuilderAdmin />}
             {activeTab === 'users' && <UsersAdmin />}

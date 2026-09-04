@@ -19,6 +19,8 @@ export default function RatesAdmin() {
   const [isEditing, setIsEditing] = useState(false);
   const [current, setCurrent] = useState<any>({});
   const [toast, setToast] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const limit = 20;
 
   const fetchData = async () => {
     try {
@@ -183,7 +185,7 @@ export default function RatesAdmin() {
       <div className="bg-white rounded-2xl p-4 shadow-xs border border-slate-200/80 flex flex-col md:flex-row justify-between items-center gap-4">
         <div className="flex items-center gap-2 w-full md:w-auto overflow-x-auto pb-1 md:pb-0">
           <button
-            onClick={() => setSelectedVehicleFilter('all')}
+            onClick={() => { setSelectedVehicleFilter('all'); setPage(1); }}
             className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${selectedVehicleFilter === 'all' ? 'bg-[var(--color-saudi-emerald)] text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
           >
             {isAr ? 'جميع المركبات' : 'All Vehicles'} ({rates.length})
@@ -191,7 +193,7 @@ export default function RatesAdmin() {
           {vehicles.map(v => (
             <button
               key={v.id}
-              onClick={() => setSelectedVehicleFilter(String(v.id))}
+              onClick={() => { setSelectedVehicleFilter(String(v.id)); setPage(1); }}
               className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${selectedVehicleFilter === String(v.id) ? 'bg-[var(--color-saudi-emerald)] text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
             >
               {v.name} ({rates.filter(r => r.vehicleId === v.id).length})
@@ -204,7 +206,7 @@ export default function RatesAdmin() {
             type="text" 
             placeholder={isAr ? 'بحث بالمسار أو السعر...' : 'Search route, vehicle...'} 
             value={search}
-            onChange={e => setSearch(e.target.value)}
+            onChange={e => { setSearch(e.target.value); setPage(1); }}
             className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-xl text-xs font-medium focus:ring-2 focus:ring-[var(--color-saudi-green)] outline-none" 
           />
           <Search className="absolute left-3 top-2.5 text-slate-400" size={14} />
@@ -229,7 +231,7 @@ export default function RatesAdmin() {
               ) : filtered.length === 0 ? (
                 <tr><td colSpan={4} className="p-12 text-center text-slate-400">{isAr ? 'لا توجد تسعيرات مطابقة' : 'No rates found'}</td></tr>
               ) : (
-                filtered.map(r => {
+                paginated.map(r => {
                   const v = getVehicle(r.vehicleId);
                   return (
                     <tr key={r.id} className="hover:bg-gray-50 transition-colors">

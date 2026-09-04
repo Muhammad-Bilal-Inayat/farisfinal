@@ -1,68 +1,54 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect } from 'react';
+import { useSiteSettings } from '../context/SiteSettingsContext';
+import { useLocation } from 'react-router-dom';
 
 interface AdBannerProps {
-  dataAdSlot: string;
-  dataAdFormat?: string;
-  dataFullWidthResponsive?: boolean;
+  slotId?: string;
+  format?: 'auto' | 'fluid' | 'rectangle';
+  responsive?: boolean;
   className?: string;
 }
 
-/**
- * Google AdSense Banner Component
- * Usage:
- * <AdBanner dataAdSlot="XXXXXXXXXX" />
- * 
- * Make sure to replace the Google AdSense Publisher ID in index.html
- */
-export default function AdBanner({
-  dataAdSlot,
-  dataAdFormat = 'auto',
-  dataFullWidthResponsive = true,
-  className = ''
-}: AdBannerProps) {
-  const adRef = useRef<HTMLModElement>(null);
-  const pushedRef = useRef(false);
+export default function AdBanner({ slotId, format = 'auto', responsive = true, className = '' }: AdBannerProps) {
+  const settings = useSiteSettings();
+  const location = useLocation();
 
   useEffect(() => {
-    // Only attempt push if not already pushed for this instance
-    if (pushedRef.current) return;
-
-    try {
-      if (
-        adRef.current &&
-        !adRef.current.getAttribute('data-adsbygoogle-status') &&
-        adRef.current.children.length === 0
-      ) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const adsbygoogle = (window as any).adsbygoogle || [];
-        adsbygoogle.push({});
-        pushedRef.current = true;
-      }
-    } catch (e: any) {
-      // Gracefully silence known harmless AdSense duplicate push warnings in SPA navigation
-      if (!e?.message?.includes?.('All \'ins\' elements')) {
-        console.warn('AdSense notice:', e?.message || e);
+    if (settings.adsenseEnabled === 'true' && slotId && typeof window !== 'undefined') {
+      try {
+        // Push ad instruction to adsbygoogle array
+        ((window as any).adsbygoogle = (window as any).adsbygoogle || []).push({});
+      } catch (e) {
+        console.error("AdSense Error: ", e);
       }
     }
-  }, []);
+  }, [settings.adsenseEnabled, slotId, location.pathname]);
 
-  // Temporarily return null to prevent empty spaces and "AdSense keywords" placeholders before AdSense is fully approved.
-  // Once you get AdSense approval and your actual publisher ID, you can restore the code below.
-  return null;
+  if (settings.adsenseEnabled !== 'true' || !slotId) {
+    return null;
+  }
 
-  /*
+  const isSandbox = settings.adsenseSandbox === 'true';
+
+  if (isSandbox) {
+    return (
+      <div className={`w-full bg-slate-100 border-2 border-dashed border-slate-300 rounded-lg flex flex-col items-center justify-center p-8 text-slate-400 my-4 min-h-[100px] ${className}`}>
+        <span className="font-bold uppercase tracking-widest text-xs">AdSense Slot</span>
+        <span className="font-mono text-[10px] mt-1">{slotId}</span>
+      </div>
+    );
+  }
+
   return (
-    <div className={`ad-container my-4 text-center overflow-hidden ${className}`}>
-      <ins
-        ref={adRef}
+    <div className={`w-full overflow-hidden flex justify-center my-4 min-h-[100px] ${className}`}>
+      <ins 
         className="adsbygoogle"
-        style={{ display: 'block' }}
-        data-ad-client="ca-pub-XXXXXXXXXXXXXXXX" // Replace with your actual publisher ID
-        data-ad-slot={dataAdSlot}
-        data-ad-format={dataAdFormat}
-        data-full-width-responsive={dataFullWidthResponsive ? "true" : "false"}
+        style={{ display: 'block', width: '100%' }}
+        data-ad-client={settings.adsensePublisherId}
+        data-ad-slot={slotId}
+        data-ad-format={format}
+        data-full-width-responsive={responsive ? "true" : "false"}
       />
     </div>
   );
-  */
 }

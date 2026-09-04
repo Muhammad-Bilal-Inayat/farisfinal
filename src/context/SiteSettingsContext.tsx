@@ -11,6 +11,13 @@ interface SiteSettings {
   popupDescription?: string;
   popupImageBase64?: string;
   homePageConfig?: string;
+  adsenseEnabled?: string;
+  adsensePublisherId?: string;
+  adsenseSandbox?: string;
+  adsenseHeaderSlot?: string;
+  adsenseArticleSlot?: string;
+  adsenseSidebarSlot?: string;
+  adsenseFooterSlot?: string;
 }
 
 const SiteSettingsContext = createContext<SiteSettings>({
@@ -80,6 +87,18 @@ export const SiteSettingsProvider = ({ children }: { children: React.ReactNode }
             document.head.appendChild(icon);
           }
           icon.setAttribute('href', '/uploads/logo.png');
+
+          // Inject AdSense Code
+          if (data.adsenseEnabled === 'true' && data.adsensePublisherId) {
+            let existingScript = document.querySelector('script[src*="adsbygoogle.js"]');
+            if (!existingScript) {
+              const script = document.createElement('script');
+              script.async = true;
+              script.src = `https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${data.adsensePublisherId}`;
+              script.crossOrigin = "anonymous";
+              document.head.appendChild(script);
+            }
+          }
         }
       })
       .catch(console.error);

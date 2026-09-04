@@ -15,6 +15,8 @@ export default function RoutesAdmin() {
   const [isEditing, setIsEditing] = useState(false);
   const [current, setCurrent] = useState<any>({});
   const [toast, setToast] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const limit = 20;
 
   const fetchData = async () => {
     try {
@@ -129,6 +131,8 @@ export default function RoutesAdmin() {
     (r.pickup || '').toLowerCase().includes(search.toLowerCase()) ||
     (r.destination || '').toLowerCase().includes(search.toLowerCase())
   );
+  const totalPages = Math.ceil(filtered.length / limit);
+  const paginated = filtered.slice((page - 1) * limit, page * limit);
 
   return (
     <div className="space-y-6">
@@ -177,7 +181,7 @@ export default function RoutesAdmin() {
             type="text" 
             placeholder={isAr ? 'بحث بالمسار أو المدينة...' : 'Search route, pickup, city...'} 
             value={search}
-            onChange={e => setSearch(e.target.value)}
+            onChange={e => { setSearch(e.target.value); setPage(1); }}
             className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-xl text-xs font-medium focus:ring-2 focus:ring-[var(--color-saudi-green)] outline-none" 
           />
           <Search className="absolute left-3 top-2.5 text-slate-400" size={14} />
@@ -203,7 +207,7 @@ export default function RoutesAdmin() {
               ) : filtered.length === 0 ? (
                 <tr><td colSpan={5} className="p-12 text-center text-slate-400">{isAr ? 'لا توجد مسارات مطابقة' : 'No routes found'}</td></tr>
               ) : (
-                filtered.map(r => (
+                paginated.map(r => (
                   <tr key={r.id} className="hover:bg-gray-50 transition-colors">
                     <td className="p-4">
                       <div className="font-extrabold text-slate-900 flex items-center gap-2">

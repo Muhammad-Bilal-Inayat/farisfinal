@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
-  LineChart, Line, PieChart, Pie, Cell 
+  LineChart, Line, PieChart, Pie, Cell, ComposedChart, Area 
 } from 'recharts';
 import { 
   TrendingUp, Users, Calendar, Banknote, Car, Clock, 
@@ -17,6 +17,7 @@ export default function DashboardHome({ setActiveTab }: { setActiveTab?: (t: any
   const [bookings, setBookings] = useState<any[]>([]);
   const [vehicles, setVehicles] = useState<any[]>([]);
   const [messages, setMessages] = useState<any[]>([]);
+  const [auditLogs, setAuditLogs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [timeFilter, setTimeFilter] = useState<'all' | 'month' | 'week'>('all');
 
@@ -24,11 +25,13 @@ export default function DashboardHome({ setActiveTab }: { setActiveTab?: (t: any
     const token = localStorage.getItem('adminToken');
     if (!token) return;
     try {
-      const [bRes, vRes, mRes] = await Promise.all([
+      const [bRes, vRes, mRes, aRes] = await Promise.all([
         fetch('/api/admin/bookings', { headers: { 'Authorization': `Bearer ${token}` } }),
         fetch('/api/admin/vehicles', { headers: { 'Authorization': `Bearer ${token}` } }),
-        fetch('/api/admin/messages', { headers: { 'Authorization': `Bearer ${token}` } })
+        fetch('/api/admin/messages', { headers: { 'Authorization': `Bearer ${token}` } }),
+        fetch('/api/admin/audit_logs', { headers: { 'Authorization': `Bearer ${token}` } })
       ]);
+      if (aRes?.ok) { setAuditLogs(await aRes.json()); }
 
       if (bRes.ok) {
         const d = await bRes.json();
@@ -74,6 +77,21 @@ export default function DashboardHome({ setActiveTab }: { setActiveTab?: (t: any
   const pendingCount = filteredBookings.filter(b => b.status?.toLowerCase() === 'pending' || !b.status).length;
   const activeVehiclesCount = vehicles.filter(v => v.status !== 'archived').length;
   const unreadMessagesCount = messages.filter(m => m.status === 'Unread').length;
+
+  
+  const bookingsByDate: Record<string, number> = {};
+  filteredBookings.forEach(b => {
+    if (b.createdAt || b.date) {
+      const d = new Date(b.createdAt || b.date);
+      const key = `${d.getDate()} ${d.toLocaleString('en-US', { month: 'short' })}`;
+      bookingsByDate[key] = (bookingsByDate[key] || 0) + 1;
+    }
+  });
+  const bookingsVsVehiclesData = Object.entries(bookingsByDate).map(([date, count]) => ({
+    name: date,
+    Bookings: count,
+    Vehicles: activeVehiclesCount
+  })).slice(-15); // last 15 active days
 
   // Chart: Monthly / Recent Revenue
   const revenueByMonth: Record<string, number> = {};
@@ -423,6 +441,63 @@ export default function DashboardHome({ setActiveTab }: { setActiveTab?: (t: any
               <span className="font-medium text-slate-600">{isAr ? 'ملغي' : 'Cancelled'}: <strong className="text-slate-900">{statusCounts.Cancelled}</strong></span>
             </div>
           </div>
+        </div>
+      </div>
+
+      
+      {/* Admin Activity Log */}
+      <div className="bg-white rounded-2xl shadow-xs border border-slate-200/80 overflow-hidden mt-6">
+        <div className="p-6 border-b border-slate-100 flex items-center justify-between">
+          <div>
+            <h3 className="text-base font-extrabold text-slate-900 flex items-center gap-2">
+              <ShieldCheck size={20} className="text-[var(--color-saudi-emerald)]" />
+              {isAr ? 'سجل نشاط الإدارة' : 'Admin Activity Log'}
+            </h3>
+            <p className="text-xs text-slate-500 mt-1">
+              {isAr ? 'أحدث الإجراءات المتخذة في النظام للمساءلة' : 'Recent actions taken in the system for accountability'}
+            </p>
+          </div>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="bg-slate-50 text-[11px] uppercase font-bold tracking-wider text-slate-500 border-b border-slate-200">
+                <th className="p-4">{isAr ? 'الوقت' : 'Timestamp'}</th>
+                <th className="p-4">{isAr ? 'المستخدم' : 'User'}</th>
+                <th className="p-4">{isAr ? 'الإجراء' : 'Action'}</th>
+                <th className="p-4">{isAr ? 'الوحدة' : 'Module'}</th>
+              </tr>
+            </thead>
+            <tbody className="bg-white text-sm divide-y divide-slate-100 text-slate-700">
+              {auditLogs.length === 0 ? (
+                <tr>
+                  <td colSpan={4} className="p-8 text-center text-slate-400">
+                    {isAr ? 'لا توجد سجلات' : 'No activity logs found.'}
+                  </td>
+                </tr>
+              ) : (
+                auditLogs.slice(0, 5).map(log => (
+                  <tr key={log.id} className="hover:bg-slate-50 transition-colors">
+                    <td className="p-4 whitespace-nowrap text-xs text-slate-500">
+                      {new Date(log.createdAt).toLocaleString(isAr ? 'ar-SA' : 'en-US')}
+                    </td>
+                    <td className="p-4 font-semibold text-slate-900">
+                      {log.username || 'Admin'}
+                    </td>
+                    <td className="p-4">
+                      <span className="font-medium text-slate-800">{log.action.replace(/_/g, ' ')}</span>
+                      <div className="text-[10px] text-slate-400 max-w-xs truncate">{log.changes}</div>
+                    </td>
+                    <td className="p-4">
+                      <span className="px-2 py-1 bg-slate-100 text-slate-600 rounded text-xs font-bold uppercase">
+                        {log.module}
+                      </span>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
         </div>
       </div>
 

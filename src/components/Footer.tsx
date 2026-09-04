@@ -4,13 +4,21 @@ import { useSiteSettings } from '../context/SiteSettingsContext';
 import { Phone, Mail, MapPin } from 'lucide-react';
 import { useWhatsApp } from '../hooks/useWhatsApp';
 import BrandLogo from './BrandLogo';
+import AdBanner from './AdBanner';
 
 export default function Footer() {
-  const { companyName, websiteDomain } = useSiteSettings();
+  const siteSettings = useSiteSettings();
+  const { companyName, websiteDomain } = siteSettings;
   const { t } = useTranslation();
   const { settings, openWhatsApp } = useWhatsApp();
 
   return (
+    <>
+    {siteSettings.adsenseFooterSlot && (
+      <div className="container mx-auto px-4 py-4">
+        <AdBanner slotId={siteSettings.adsenseFooterSlot} />
+      </div>
+    )}
     <footer className="bg-[var(--color-dark-charcoal)] text-white pt-16 pb-8">
       <div className="container mx-auto px-4 md:px-6">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-10 mb-12">
@@ -83,5 +91,6 @@ export default function Footer() {
         </div>
       </div>
     </footer>
+    </>
   );
 }

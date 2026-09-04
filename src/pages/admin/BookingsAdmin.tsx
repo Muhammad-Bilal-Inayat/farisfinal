@@ -20,7 +20,7 @@ export default function BookingsAdmin() {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [page, setPage] = useState(1);
-  const [limit, setLimit] = useState(25);
+  const [limit, setLimit] = useState(20);
   const [totalPages, setTotalPages] = useState(1);
   const [totalRecords, setTotalRecords] = useState(0);
   
@@ -31,6 +31,9 @@ export default function BookingsAdmin() {
   const [editForm, setEditForm] = useState<any>({});
   const [actionSuccess, setActionSuccess] = useState<string | null>(null);
   const [assigningDriverId, setAssigningDriverId] = useState<string>('');
+  const [selectedIds, setSelectedIds] = useState<number[]>([]);
+  const [showBulkDeleteModal, setShowBulkDeleteModal] = useState(false);
+  const [isBulkDeleting, setIsBulkDeleting] = useState(false);
 
   const fetchBookingsAndVehicles = async (isBackground = false) => {
     const token = localStorage.getItem('adminToken');
@@ -155,6 +158,77 @@ export default function BookingsAdmin() {
       }
     } catch (e) {
       alert("Failed to update status");
+    }
+  };
+
+  const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.checked) {
+      setSelectedIds(filteredBookings.map(b => b.id));
+    } else {
+      setSelectedIds([]);
+    }
+  };
+
+  const handleSelectOne = (id: number) => {
+    setSelectedIds(prev => 
+      prev.includes(id) ? prev.filter(bid => bid !== id) : [...prev, id]
+    );
+  };
+
+
+  const handleBulkStatus = async (status: string) => {
+    if (selectedIds.length === 0) return;
+    try {
+      const res = await fetch(`/api/admin/bookings/bulk-status`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('adminToken')}`
+        },
+        body: JSON.stringify({ ids: selectedIds, status })
+      });
+      if (res.ok) {
+        showToast(isAr ? 'تم تحديث حالة الحجوزات' : 'Bookings status updated');
+        fetchBookings();
+        setSelectedIds([]);
+      } else {
+        showToast(isAr ? 'فشل التحديث' : 'Update failed', 'error');
+      }
+    } catch (e) {
+      showToast(isAr ? 'فشل التحديث' : 'Update failed', 'error');
+    }
+  };
+  const confirmBulkDelete = async () => {
+    if (selectedIds.length === 0) return;
+    setIsBulkDeleting(true);
+    try {
+      const res = await fetch(`/api/admin/bookings/bulk-delete`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('adminToken')}`
+        },
+        body: JSON.stringify({ ids: selectedIds })
+      });
+      
+      if (res.status === 401) {
+        localStorage.removeItem('adminToken');
+        window.location.reload();
+        return;
+      }
+      
+      if (res.ok) {
+        showToast(isAr ? 'تم حذف الحجوزات المحددة' : 'Selected bookings deleted');
+        fetchBookings();
+        setSelectedIds([]);
+        setShowBulkDeleteModal(false);
+      } else {
+        showToast(isAr ? 'فشل الحذف' : 'Bulk delete failed', 'error');
+      }
+    } catch (e) {
+      showToast(isAr ? 'فشل الحذف' : 'Bulk delete failed', 'error');
+    } finally {
+      setIsBulkDeleting(false);
     }
   };
 
@@ -441,6 +515,34 @@ export default function BookingsAdmin() {
           </button>
 
           {/* Add Manual Booking Button */}
+          {selectedIds.length > 0 && (
+            <div className="flex items-center gap-2">
+              <select 
+                onChange={(e) => {
+                  if (e.target.value) {
+                    handleBulkStatus(e.target.value);
+                    e.target.value = "";
+                  }
+                }}
+                className="bg-white border border-slate-300 text-slate-700 px-3 py-2.5 rounded-xl font-bold text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">{isAr ? 'تغيير الحالة...' : 'Change Status...'}</option>
+                <option value="Confirmed">{isAr ? 'مؤكد' : 'Confirmed'}</option>
+                <option value="Completed">{isAr ? 'مكتمل' : 'Completed'}</option>
+                <option value="Pending">{isAr ? 'قيد الانتظار' : 'Pending'}</option>
+                <option value="Cancelled">{isAr ? 'ملغي' : 'Cancelled'}</option>
+              </select>
+              <button 
+                onClick={() => setShowBulkDeleteModal(true)}
+              className="bg-red-600 hover:bg-red-700 text-white px-4 py-2.5 rounded-xl font-bold flex items-center gap-2 transition-all shadow-sm shadow-red-200"
+            >
+              <Trash2 size={18} />
+              <span className="hidden sm:inline">
+                {isAr ? `حذف المحدد (${selectedIds.length})` : `Delete Selected (${selectedIds.length})`}
+              </span>
+            </button>
+            </div>
+          )}
           <button 
             onClick={() => {
               setEditForm({

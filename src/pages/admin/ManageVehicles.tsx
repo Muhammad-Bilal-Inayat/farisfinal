@@ -128,6 +128,11 @@ export default function ManageVehicles() {
   const [isSaving, setIsSaving] = useState(false);
   const [compressing, setCompressing] = useState(false);
   const [showGallery, setShowGallery] = useState(false);
+  const [isDeletingId, setIsDeletingId] = useState<number | null>(null);
+  const [vehicleToDelete, setVehicleToDelete] = useState<any | null>(null);
+  const [selectedIds, setSelectedIds] = useState<number[]>([]);
+  const [showBulkDeleteModal, setShowBulkDeleteModal] = useState(false);
+  const [isBulkDeleting, setIsBulkDeleting] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -350,8 +355,107 @@ export default function ManageVehicles() {
     }
   };
 
-  const handleDelete = async (id: number) => {
-    if (!confirm(isAr ? "هل أنت متأكد من رغبتك في أرشفة هذه السيارة من الأسطول؟" : "Are you sure you want to archive/remove this vehicle from active fleet?")) return;
+  const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.checked) {
+      setSelectedIds(filtered.map(v => v.id));
+    } else {
+      setSelectedIds([]);
+    }
+  };
+
+  const handleSelectOne = (id: number) => {
+    setSelectedIds(prev => 
+      prev.includes(id) ? prev.filter(vid => vid !== id) : [...prev, id]
+    );
+  };
+
+
+  const handleBulkStatus = async (status: 'active' | 'inactive') => {
+    if (selectedIds.length === 0) return;
+    try {
+      const res = await fetch(`/api/admin/vehicles/bulk-status`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('adminToken')}`
+        },
+        body: JSON.stringify({ ids: selectedIds, status })
+      });
+      if (res.ok) {
+        showToast(isAr ? 'تم تحديث الحالة' : 'Status updated');
+        fetchVehicles();
+        setSelectedIds([]);
+      } else {
+        showToast(isAr ? 'فشل التحديث' : 'Update failed', 'error');
+      }
+    } catch (e) {
+      showToast(isAr ? 'فشل التحديث' : 'Update failed', 'error');
+    }
+  };
+  
+  const handleToggleStatus = async (id: number, currentStatus: string) => {
+    try {
+      const newStatus = currentStatus === 'active' ? 'inactive' : 'active';
+      const res = await fetch(`/api/admin/vehicles/${id}/status`, {
+        method: 'PUT',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('adminToken')}`
+        },
+        body: JSON.stringify({ status: newStatus })
+      });
+      if (res.ok) {
+        fetchVehicles();
+        showToast(isAr ? 'تم تحديث الحالة' : 'Status updated');
+      }
+    } catch (e) {
+      showToast(isAr ? 'فشل التحديث' : 'Update failed', 'error');
+    }
+  };
+  const confirmBulkDelete = async () => {
+    if (selectedIds.length === 0) return;
+    setIsBulkDeleting(true);
+    try {
+      const res = await fetch(`/api/admin/vehicles/bulk-delete`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('adminToken')}`
+        },
+        body: JSON.stringify({ ids: selectedIds })
+      });
+      
+      if (res.status === 401) {
+        localStorage.removeItem('adminToken');
+        window.location.reload();
+        return;
+      }
+      
+      if (res.ok) {
+        showToast(isAr ? 'تم حذف السيارات المحددة' : 'Selected vehicles deleted');
+        fetchVehicles();
+        notifyVehicleUpdated();
+        setSelectedIds([]);
+        setShowBulkDeleteModal(false);
+      } else {
+        const err = await res.json().catch(()=>({}));
+        showToast(isAr ? 'فشل الحذف' : (err.error || 'Bulk delete failed'), 'error');
+      }
+    } catch (e) {
+      showToast(isAr ? 'فشل الحذف' : 'Bulk delete failed', 'error');
+    } finally {
+      setIsBulkDeleting(false);
+    }
+  };
+
+  const requestDelete = (v: any) => {
+    setVehicleToDelete(v);
+  };
+
+  const confirmDelete = async () => {
+    if (!vehicleToDelete) return;
+    const id = vehicleToDelete.id;
+    setIsDeletingId(id);
     try {
       const res = await fetch(`/api/admin/vehicles/${id}`, {
         method: 'DELETE',
@@ -363,12 +467,19 @@ export default function ManageVehicles() {
         return;
       }
       if (res.ok) {
-        showToast(isAr ? 'تم أرشفة السيارة من الأسطول' : 'Vehicle archived from active fleet');
+        showToast(isAr ? 'تم حذف السيارة من الأسطول' : 'Vehicle deleted from active fleet');
         fetchVehicles();
         notifyVehicleUpdated();
+      } else {
+        const errorData = await res.json().catch(() => ({}));
+        console.error("Delete failed:", errorData);
+        showToast(isAr ? 'فشل حذف السيارة' : (errorData.error || 'Failed to delete vehicle'), 'error');
       }
     } catch (e) {
-      showToast(isAr ? 'فشل أرشفة السيارة' : 'Failed to archive vehicle', 'error');
+      showToast(isAr ? 'فشل حذف السيارة' : 'Failed to delete vehicle', 'error');
+    } finally {
+      setIsDeletingId(null);
+      setVehicleToDelete(null);
     }
   };
 
@@ -794,11 +905,11 @@ export default function ManageVehicles() {
                       <Edit size={16} />
                     </button>
                     <button 
-                      onClick={() => handleDelete(v.id)} 
-                      title={isAr ? 'أرشفة من الأسطول' : 'Archive Vehicle'}
-                      className="p-2 text-red-500 hover:bg-red-50 rounded-xl transition-colors cursor-pointer"
+                      onClick={() => requestDelete(v)} disabled={isDeletingId === v.id} 
+                      title={isAr ? 'حذف من الأسطول' : 'Delete Vehicle'}
+                      className="p-2 text-red-500 hover:bg-red-50 rounded-xl transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      <Trash2 size={16} />
+                      {isDeletingId === v.id ? <RefreshCw size={16} className="animate-spin" /> : <Trash2 size={16} />}
                     </button>
                   </div>
                 </div>
@@ -813,6 +924,14 @@ export default function ManageVehicles() {
             <table className="w-full text-left text-xs border-collapse">
               <thead>
                 <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 font-extrabold uppercase tracking-wider">
+                  <th className="p-4 w-12">
+                    <input 
+                      type="checkbox" 
+                      className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                      checked={filtered.length > 0 && selectedIds.length === filtered.length}
+                      onChange={handleSelectAll}
+                    />
+                  </th>
                   <th className="p-4">{isAr ? 'الصورة والموديل' : 'Vehicle & Model'}</th>
                   <th className="p-4">{isAr ? 'الفئة' : 'Category'}</th>
                   <th className="p-4">{isAr ? 'السعة' : 'Capacities'}</th>
@@ -824,6 +943,14 @@ export default function ManageVehicles() {
               <tbody className="divide-y divide-slate-100">
                 {filtered.map(v => (
                   <tr key={v.id} className="hover:bg-slate-50/80 transition-colors">
+                    <td className="p-4">
+                      <input 
+                        type="checkbox" 
+                        className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                        checked={selectedIds.includes(v.id)}
+                        onChange={() => handleSelectOne(v.id)}
+                      />
+                    </td>
                     <td className="p-4">
                       <div className="flex items-center gap-3">
                         <img 
@@ -874,10 +1001,11 @@ export default function ManageVehicles() {
                           <Edit size={15} />
                         </button>
                         <button 
-                          onClick={() => handleDelete(v.id)}
-                          className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg cursor-pointer"
+                          onClick={() => requestDelete(v)} disabled={isDeletingId === v.id}
+                          className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                          title={isAr ? 'حذف من الأسطول' : 'Delete Vehicle'}
                         >
-                          <Trash2 size={15} />
+                          {isDeletingId === v.id ? <RefreshCw size={15} className="animate-spin" /> : <Trash2 size={15} />}
                         </button>
                       </div>
                     </td>
@@ -890,6 +1018,85 @@ export default function ManageVehicles() {
       )}
 
       {/* CREATE / EDIT VEHICLE MODAL WITH LIVE PREVIEW */}
+      
+      {/* BULK DELETE MODAL */}
+      {showBulkDeleteModal && (
+        <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6 animate-fade-in text-center">
+            <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4 text-red-600">
+              <Trash2 size={32} />
+            </div>
+            <h3 className="text-xl font-bold text-slate-900 mb-2">
+              {isAr ? 'تأكيد الحذف الجماعي' : 'Confirm Bulk Deletion'}
+            </h3>
+            <p className="text-slate-500 mb-6 text-sm">
+              {isAr 
+                ? `هل أنت متأكد من حذف ${selectedIds.length} سيارة؟ هذا الإجراء لا يمكن التراجع عنه.`
+                : `Are you sure you want to delete ${selectedIds.length} selected vehicles? This action cannot be undone.`}
+            </p>
+            <div className="flex gap-3 justify-center">
+              <button
+                onClick={() => setShowBulkDeleteModal(false)}
+                disabled={isBulkDeleting}
+                className="px-5 py-2.5 rounded-xl border border-slate-200 text-slate-700 font-bold hover:bg-slate-50 transition-colors"
+              >
+                {isAr ? 'إلغاء' : 'Cancel'}
+              </button>
+              <button
+                onClick={confirmBulkDelete}
+                disabled={isBulkDeleting}
+                className="px-5 py-2.5 rounded-xl bg-red-600 text-white font-bold hover:bg-red-700 transition-colors flex items-center gap-2"
+              >
+                {isBulkDeleting ? (
+                  <><RefreshCw size={16} className="animate-spin" /> {isAr ? 'جاري الحذف...' : 'Deleting...'}</>
+                ) : (
+                  <><Trash2 size={16} /> {isAr ? 'احذف الكل' : 'Delete All'}</>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* CONFIRM DELETE MODAL */}
+      {vehicleToDelete && (
+        <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6 animate-fade-in text-center">
+            <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4 text-red-600">
+              <Trash2 size={32} />
+            </div>
+            <h3 className="text-xl font-bold text-slate-900 mb-2">
+              {isAr ? 'تأكيد الحذف' : 'Confirm Deletion'}
+            </h3>
+            <p className="text-slate-500 mb-6 text-sm">
+              {isAr 
+                ? `هل أنت متأكد من رغبتك في حذف "${vehicleToDelete.name}" بشكل نهائي؟ هذا الإجراء لا يمكن التراجع عنه وسيحذف جميع الأسعار المرتبطة بها.`
+                : `Are you sure you want to permanently delete "${vehicleToDelete.name}"? This action cannot be undone and will remove all associated trip rates.`}
+            </p>
+            <div className="flex gap-3 justify-center">
+              <button
+                onClick={() => setVehicleToDelete(null)}
+                disabled={isDeletingId !== null}
+                className="px-5 py-2.5 rounded-xl border border-slate-200 text-slate-700 font-bold hover:bg-slate-50 transition-colors"
+              >
+                {isAr ? 'إلغاء' : 'Cancel'}
+              </button>
+              <button
+                onClick={confirmDelete}
+                disabled={isDeletingId !== null}
+                className="px-5 py-2.5 rounded-xl bg-red-600 text-white font-bold hover:bg-red-700 transition-colors flex items-center gap-2"
+              >
+                {isDeletingId !== null ? (
+                  <><RefreshCw size={16} className="animate-spin" /> {isAr ? 'جاري الحذف...' : 'Deleting...'}</>
+                ) : (
+                  <><Trash2 size={16} /> {isAr ? 'نعم، احذف' : 'Yes, Delete'}</>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {isEditing && (
         <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-3 sm:p-6 backdrop-blur-xs overflow-y-auto">
           <div className="bg-white rounded-3xl shadow-2xl max-w-4xl w-full p-6 sm:p-8 my-8 border border-slate-100 max-h-[92vh] overflow-y-auto">

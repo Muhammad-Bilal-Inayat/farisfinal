@@ -8,7 +8,7 @@ import compression from "compression";
 import { createServer as createViteServer } from "vite";
 import { db } from "./src/db/index.js";
 import { bookings, vehicles, trip_routes, trip_rates, settings, users, admins, activity_logs, contact_messages, whatsapp_settings, testimonials, drivers, admin_audit_logs, booking_sync_logs, archived_bookings } from "./src/db/schema.js";
-import { eq, desc, and, sql } from "drizzle-orm";
+import { eq, desc, and, sql, inArray } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 
@@ -1832,6 +1832,62 @@ async function startServer() {
     } catch (error) { res.status(500).json({ error: "Error updating booking" }); }
   });
 
+  app.post("/api/admin/bookings/bulk-status", verifyAdmin, async (req, res) => {
+    try {
+      const { ids, status } = req.body;
+      if (!Array.isArray(ids) || ids.length === 0) return res.status(400).json({ error: "No IDs provided" });
+      
+      const adminUser = (req as any).user;
+      
+      await db.update(bookings).set({ status }).where(inArray(bookings.id, ids));
+      
+      await db.insert(admin_audit_logs).values({
+        userId: adminUser?.id || null,
+        username: adminUser?.username || 'admin',
+        action: 'BULK_UPDATE_BOOKING_STATUS',
+        module: 'bookings',
+        recordId: ids.join(','),
+        changes: JSON.stringify({ action: 'bulk_status_update', status, count: ids.length }),
+        ipAddress: req.ip || String(req.headers['x-forwarded-for'] || ''),
+        createdAt: new Date().toISOString()
+      });
+
+      invalidateCacheTag("bookings:");
+      res.json({ success: true, count: ids.length });
+    } catch (error) {
+      console.error("Bulk status error:", error);
+      res.status(500).json({ error: "Error updating bookings" });
+    }
+  });
+
+  app.post("/api/admin/bookings/bulk-delete", verifyAdmin, async (req, res) => {
+    try {
+      const { ids } = req.body;
+      if (!Array.isArray(ids) || ids.length === 0) return res.status(400).json({ error: "No IDs provided" });
+      
+      const adminUser = (req as any).user;
+      
+      await db.delete(bookings).where(inArray(bookings.id, ids));
+      
+      await db.insert(admin_audit_logs).values({
+        userId: adminUser?.id || null,
+        username: adminUser?.username || 'admin',
+        action: 'BULK_DELETE_BOOKINGS',
+        module: 'bookings',
+        recordId: ids.join(','),
+        changes: JSON.stringify({ action: 'bulk_deleted', count: ids.length }),
+        ipAddress: req.ip || String(req.headers['x-forwarded-for'] || ''),
+        createdAt: new Date().toISOString()
+      });
+
+      invalidateCacheTag("bookings:");
+      res.json({ success: true, count: ids.length });
+    } catch (error) {
+      console.error("Bulk delete error:", error);
+      res.status(500).json({ error: "Error deleting bookings" });
+    }
+  });
+
   app.delete("/api/admin/bookings/:id", verifyAdmin, async (req, res) => {
     try {
       await db.delete(bookings).where(eq(bookings.id, Number(req.params.id)));
@@ -2050,21 +2106,120 @@ async function startServer() {
     }
   });
 
+  app.put("/api/admin/vehicles/:id/status", verifyAdmin, async (req, res) => {
+    try {
+      const vehicleId = Number(req.params.id);
+      const { status } = req.body;
+      if (status !== 'active' && status !== 'inactive') return res.status(400).json({ error: "Invalid status" });
+      
+      const adminUser = (req as any).user;
+      
+      await db.update(vehicles).set({ status }).where(eq(vehicles.id, vehicleId));
+      
+      await db.insert(admin_audit_logs).values({
+        userId: adminUser?.id || null,
+        username: adminUser?.username || 'admin',
+        action: 'UPDATE_VEHICLE_STATUS',
+        module: 'vehicles',
+        recordId: String(vehicleId),
+        changes: JSON.stringify({ status }),
+        ipAddress: req.ip || String(req.headers['x-forwarded-for'] || ''),
+        createdAt: new Date().toISOString()
+      });
+
+      invalidateCacheTag("vehicles:");
+      res.json({ success: true, status });
+    } catch (error) {
+      res.status(500).json({ error: "Error updating vehicle status" });
+    }
+  });
+
+  app.post("/api/admin/vehicles/bulk-status", verifyAdmin, async (req, res) => {
+    try {
+      const { ids, status } = req.body;
+      if (!Array.isArray(ids) || ids.length === 0) return res.status(400).json({ error: "No IDs provided" });
+      if (status !== 'active' && status !== 'inactive') return res.status(400).json({ error: "Invalid status" });
+      
+      const adminUser = (req as any).user;
+      
+      await db.update(vehicles).set({ status }).where(inArray(vehicles.id, ids));
+      
+      await db.insert(admin_audit_logs).values({
+        userId: adminUser?.id || null,
+        username: adminUser?.username || 'admin',
+        action: 'BULK_UPDATE_VEHICLE_STATUS',
+        module: 'vehicles',
+        recordId: ids.join(','),
+        changes: JSON.stringify({ action: 'bulk_status_update', status, count: ids.length }),
+        ipAddress: req.ip || String(req.headers['x-forwarded-for'] || ''),
+        createdAt: new Date().toISOString()
+      });
+
+      invalidateCacheTag("vehicles:");
+      res.json({ success: true, count: ids.length });
+    } catch (error) {
+      res.status(500).json({ error: "Error updating vehicles" });
+    }
+  });
+
+  app.post("/api/admin/vehicles/bulk-delete", verifyAdmin, async (req, res) => {
+    try {
+      const { ids } = req.body;
+      if (!Array.isArray(ids) || ids.length === 0) return res.status(400).json({ error: "No IDs provided" });
+      
+      const adminUser = (req as any).user;
+      
+      // Delete dependencies for all ids
+      await db.delete(trip_rates).where(inArray(trip_rates.vehicleId, ids));
+      await db.update(bookings).set({ vehicleId: null }).where(inArray(bookings.vehicleId, ids));
+      
+      // Delete vehicles
+      await db.delete(vehicles).where(inArray(vehicles.id, ids));
+      
+      // Audit log
+      await db.insert(admin_audit_logs).values({
+        userId: adminUser?.id || null,
+        username: adminUser?.username || 'admin',
+        action: 'BULK_DELETE_VEHICLES',
+        module: 'vehicles',
+        recordId: ids.join(','),
+        changes: JSON.stringify({ action: 'bulk_deleted', count: ids.length }),
+        ipAddress: req.ip || String(req.headers['x-forwarded-for'] || ''),
+        createdAt: new Date().toISOString()
+      });
+
+      invalidateCacheTag("vehicles:");
+      invalidateCacheTag("routes:");
+      res.json({ success: true, count: ids.length });
+    } catch (error) {
+      console.error("Bulk delete error:", error);
+      res.status(500).json({ error: "Error deleting vehicles" });
+    }
+  });
+
   app.delete("/api/admin/vehicles/:id", verifyAdmin, async (req, res) => {
     try {
       const vehicleId = Number(req.params.id);
-      // Soft delete/deactivate instead of hard delete to preserve data relation integrity if needed
-      await db.update(vehicles).set({ status: 'archived' }).where(eq(vehicles.id, vehicleId));
+      
+      // Before hard deleting the vehicle, we must remove/nullify any foreign key references
+      // 1. Delete associated trip rates
+      await db.delete(trip_rates).where(eq(trip_rates.vehicleId, vehicleId));
+      
+      // 2. Set vehicleId to null in any existing bookings to preserve the booking history
+      await db.update(bookings).set({ vehicleId: null }).where(eq(bookings.vehicleId, vehicleId));
+
+      // Hard delete as requested by the user
+      await db.delete(vehicles).where(eq(vehicles.id, vehicleId));
 
       // Record audit log
       const adminUser = (req as any).user;
       await db.insert(admin_audit_logs).values({
         userId: adminUser?.id || null,
         username: adminUser?.username || 'admin',
-        action: 'ARCHIVE_VEHICLE',
+        action: 'DELETE_VEHICLE',
         module: 'vehicles',
         recordId: String(vehicleId),
-        changes: JSON.stringify({ status: 'archived' }),
+        changes: JSON.stringify({ action: 'deleted' }),
         ipAddress: req.ip || String(req.headers['x-forwarded-for'] || ''),
         createdAt: new Date().toISOString()
       });
@@ -2072,7 +2227,10 @@ async function startServer() {
       invalidateCacheTag("vehicles:");
       invalidateCacheTag("routes:");
       res.json({ success: true });
-    } catch (error) { res.status(500).json({ error: "Error archiving vehicle" }); }
+    } catch (error) {
+      console.error("Delete Error:", error);
+      res.status(500).json({ error: "Error deleting vehicle: " + (error.message || String(error)) }); 
+    }
   });
 
   // Admin Trip Routes
