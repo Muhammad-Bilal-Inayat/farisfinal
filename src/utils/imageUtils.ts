@@ -11,6 +11,16 @@ export const VEHICLE_IMAGE_MAP: Record<string, string> = {
 };
 
 export const getVehicleImageByName = (name: string = '', fallbackUrl?: string): string => {
+  // 1. If a valid custom image URL or uploaded data URL is provided from DB / Admin, ALWAYS use it!
+  if (fallbackUrl && typeof fallbackUrl === 'string' && fallbackUrl.trim().length > 0) {
+    const trimmed = fallbackUrl.trim();
+    // Ignore only old generic unsplash placeholder if desired, otherwise use the admin-provided URL
+    if (!trimmed.includes('photo-1549317661-bd32c8ce0db2')) {
+      return trimmed;
+    }
+  }
+
+  // 2. Fall back to default fleet assets based on name matching
   const n = (name || '').toLowerCase();
   if (n.includes('gmc') || n.includes('yukon') || n.includes('suv')) {
     return '/images/fleet/gmc-xl.jpg';
@@ -44,9 +54,6 @@ export const getVehicleImageByName = (name: string = '', fallbackUrl?: string): 
   }
   if (n.includes('sedan')) {
     return '/images/fleet/toyota-camry.jpg';
-  }
-  if (fallbackUrl && !fallbackUrl.includes('photo-1549317661-bd32c8ce0db2')) {
-    return fallbackUrl;
   }
   return '/images/fleet/gmc-xl.jpg';
 };

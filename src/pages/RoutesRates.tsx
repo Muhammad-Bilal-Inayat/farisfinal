@@ -46,10 +46,10 @@ export default function RoutesRates() {
     }
   }, [searchParams]);
 
-  useEffect(() => {
+  const loadPublicRoutesAndVehicles = () => {
     Promise.all([
-      fetch('/api/vehicles').then(r => r.json()),
-      fetch('/api/routes').then(r => r.json())
+      fetch('/api/vehicles', { cache: 'no-store' }).then(r => r.json()),
+      fetch('/api/routes', { cache: 'no-store' }).then(r => r.json())
     ]).then(([vehicles, routes]) => {
       if (Array.isArray(vehicles) && Array.isArray(routes)) {
         // Sort vehicles ensuring GMC XL 2025 is first
@@ -78,16 +78,15 @@ export default function RoutesRates() {
             }
           });
 
-          // Format passenger and luggage specs cleanly
-          const isGmc = v.name?.toLowerCase().includes('gmc');
-          const pVal = isGmc ? '7' : (v.passengerCapacity?.toString() || '4');
-          const lVal = isGmc ? '8' : (v.luggageCapacity?.toString() || '4');
+          // Format passenger and luggage specs cleanly using DB values directly
+          const pVal = v.passengerCapacity?.toString() || '4';
+          const lVal = v.luggageCapacity?.toString() || '4';
 
           return {
             id: v.id.toString(),
-            name: isGmc ? 'GMC XL 2025' : v.name,
-            nameAr: isGmc ? 'جمس يوكون إكس إل 2025' : v.name,
-            category: (v.category || (isGmc ? 'SUV' : 'Sedan')) as any,
+            name: v.name,
+            nameAr: v.nameAr || v.name,
+            category: (v.category || 'Luxury') as any,
             passengers: `${pVal} Passengers`,
             passengersAr: `${pVal} ركاب`,
             luggage: `${lVal} Big Size`,
@@ -97,8 +96,11 @@ export default function RoutesRates() {
           };
         });
 
-        // Ensure GMC XL 2025 is at the top of the list
+        // Sort vehicles by displayOrder (or prioritize GMC if tied)
         enriched.sort((a: any, b: any) => {
+          const aOrder = a.displayOrder ?? a.display_order ?? 99;
+          const bOrder = b.displayOrder ?? b.display_order ?? 99;
+          if (aOrder !== bOrder) return aOrder - bOrder;
           const aGmc = a.name.toLowerCase().includes('gmc') ? -1 : 1;
           const bGmc = b.name.toLowerCase().includes('gmc') ? -1 : 1;
           return aGmc - bGmc;
@@ -112,6 +114,19 @@ export default function RoutesRates() {
         }
       }
     }).catch(console.error);
+  };
+
+  useEffect(() => {
+    loadPublicRoutesAndVehicles();
+
+    const handleSync = () => loadPublicRoutesAndVehicles();
+    window.addEventListener('faris_routes_updated', handleSync);
+    window.addEventListener('faris_vehicles_updated', handleSync);
+
+    return () => {
+      window.removeEventListener('faris_routes_updated', handleSync);
+      window.removeEventListener('faris_vehicles_updated', handleSync);
+    };
   }, []);
 
   const handlePillClick = (pill: QuickRoutePill) => {

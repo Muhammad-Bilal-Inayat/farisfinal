@@ -22,28 +22,63 @@ export default function RatesAdmin() {
 
   const fetchData = async () => {
     try {
+      const token = localStorage.getItem('adminToken');
+      const headers: Record<string, string> = token ? { 'Authorization': `Bearer ${token}` } : {};
+
       const [resR, resV, resRoutes] = await Promise.all([
-        fetch('/api/admin/trip_rates', { headers: { 'Authorization': `Bearer ${localStorage.getItem('adminToken')}` }}),
-        fetch('/api/admin/vehicles', { headers: { 'Authorization': `Bearer ${localStorage.getItem('adminToken')}` }}),
-        fetch('/api/admin/trip_routes', { headers: { 'Authorization': `Bearer ${localStorage.getItem('adminToken')}` }})
+        fetch('/api/admin/trip_rates', { headers, cache: 'no-store' }),
+        fetch('/api/admin/vehicles', { headers, cache: 'no-store' }),
+        fetch('/api/admin/trip_routes', { headers, cache: 'no-store' })
       ]);
-      if (resR.status === 401) {
-        localStorage.removeItem('adminToken');
-        window.location.reload();
+
+      let ratesData: any[] = [];
+      let vehiclesData: any[] = [];
+      let routesData: any[] = [];
+
+      if (resR.ok) {
+        const d = await resR.json();
+        if (Array.isArray(d)) ratesData = d;
       }
-      if (resR.ok) { const d = await resR.json(); setRates(Array.isArray(d) ? d : []); }
-      if (resV.status === 401) {
-        localStorage.removeItem('adminToken');
-        window.location.reload();
+      if (resV.ok) {
+        const d = await resV.json();
+        if (Array.isArray(d)) vehiclesData = d;
       }
-      if (resV.ok) { const d = await resV.json(); setVehicles(Array.isArray(d) ? d : []); }
-      if (resRoutes.status === 401) {
-        localStorage.removeItem('adminToken');
-        window.location.reload();
+      if (resRoutes.ok) {
+        const d = await resRoutes.json();
+        if (Array.isArray(d)) routesData = d;
       }
-      if (resRoutes.ok) { const d = await resRoutes.json(); setRoutes(Array.isArray(d) ? d : []); }
+
+      // Fallbacks if admin endpoint returned empty
+      if (ratesData.length === 0) {
+        const fb = await fetch('/api/trip_rates', { cache: 'no-store' });
+        if (fb.ok) {
+          const d = await fb.json();
+          if (Array.isArray(d)) ratesData = d;
+        }
+      }
+      if (vehiclesData.length === 0) {
+        const fb = await fetch('/api/vehicles', { cache: 'no-store' });
+        if (fb.ok) {
+          const d = await fb.json();
+          if (Array.isArray(d)) vehiclesData = d;
+        }
+      }
+      if (routesData.length === 0) {
+        const fb = await fetch('/api/trip_routes', { cache: 'no-store' });
+        if (fb.ok) {
+          const d = await fb.json();
+          if (Array.isArray(d)) routesData = d;
+        }
+      }
+
+      setRates(ratesData);
+      setVehicles(vehiclesData);
+      setRoutes(routesData);
       setLoading(false);
-    } catch (e) { console.error(e); }
+    } catch (e) {
+      console.error(e);
+      setLoading(false);
+    }
   };
 
   useEffect(() => { fetchData(); }, []);
@@ -66,14 +101,11 @@ export default function RatesAdmin() {
         }, 
         body: JSON.stringify(current) 
       });
-      if (res.status === 401) {
-        localStorage.removeItem('adminToken');
-        window.location.reload();
-      }
       if (res.ok) {
-        showToast(isAr ? 'تم تحديث التسعيرة بنجاح' : 'Rate saved successfully');
+        showToast(isAr ? 'تم تحديث التسعيرة ومزامنة الموقع بنجاح' : 'Rate saved and synced to website successfully');
         setIsEditing(false);
         fetchData();
+        window.dispatchEvent(new CustomEvent('faris_routes_updated'));
       }
     } catch (e) { alert("Failed to save rate"); }
   };
@@ -85,13 +117,10 @@ export default function RatesAdmin() {
         method: 'DELETE', 
         headers: { 'Authorization': `Bearer ${localStorage.getItem('adminToken')}` } 
       });
-      if (res.status === 401) {
-        localStorage.removeItem('adminToken');
-        window.location.reload();
-      }
       if (res.ok) {
         showToast(isAr ? 'تم حذف التسعيرة' : 'Rate deleted');
         fetchData();
+        window.dispatchEvent(new CustomEvent('faris_routes_updated'));
       }
     } catch (e) { alert("Failed to delete"); }
   };

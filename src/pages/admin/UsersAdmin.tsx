@@ -138,15 +138,7 @@ export default function UsersAdmin() {
   };
 
   const roleBadgeColor = (r: string) => {
-    switch (r) {
-      case 'master_admin': return 'bg-purple-100 text-purple-900 border-purple-300';
-      case 'admin': return 'bg-emerald-100 text-emerald-900 border-emerald-300';
-      case 'secondary_admin': return 'bg-blue-100 text-blue-900 border-blue-300';
-      case 'manager': return 'bg-amber-100 text-amber-900 border-amber-300';
-      case 'editor': return 'bg-teal-100 text-teal-900 border-teal-300';
-      case 'driver': return 'bg-slate-100 text-slate-800 border-slate-300';
-      default: return 'bg-gray-100 text-gray-800 border-gray-300';
-    }
+    return 'bg-emerald-100 text-emerald-900 border-emerald-300';
   };
 
   return (
@@ -155,10 +147,10 @@ export default function UsersAdmin() {
         <div>
           <h2 className="text-xl font-extrabold text-slate-900 flex items-center gap-2">
             <ShieldCheck className="text-[var(--color-saudi-green)]" size={24} />
-            <span>{isAr ? 'إدارة حسابات المسؤولين والصلاحيات' : 'Admin Users & Role Management'}</span>
+            <span>{isAr ? 'إدارة حسابات الإدارة العامة (Master Admin)' : 'Master Admin Accounts & Security'}</span>
           </h2>
           <p className="text-xs text-slate-500 mt-1">
-            {isAr ? 'إدارة حسابات مشرفي النظام، المديرين، المحررين، والسائقين مع الصلاحيات الأمنية' : 'Manage system administrators, managers, editors, and drivers with role-based security'}
+            {isAr ? 'إدارة حسابات الإدارة العامة مع صلاحيات التحكم الكامل بالنظام وقاعدة البيانات' : 'Strict Master Admin access enforcement for complete system and database operations'}
           </p>
         </div>
         <button
@@ -166,7 +158,7 @@ export default function UsersAdmin() {
           className="bg-[var(--color-saudi-green)] hover:bg-[var(--color-saudi-emerald)] text-white px-4 py-2.5 rounded-xl font-bold text-xs transition-all shadow-md flex items-center gap-2 cursor-pointer"
         >
           <UserPlus size={16} />
-          <span>{isAr ? 'إضافة مسؤول جديد' : 'Add New Admin'}</span>
+          <span>{isAr ? 'إضافة مسؤول عام جديد' : 'Add Master Admin'}</span>
         </button>
       </div>
 
@@ -305,18 +297,14 @@ export default function UsersAdmin() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1.5">Role</label>
+                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1.5">Enforced Role</label>
                   <select
                     value={role}
-                    onChange={e => setRole(e.target.value)}
-                    className="w-full border border-slate-300 rounded-xl p-3 text-xs focus:ring-2 focus:ring-[var(--color-saudi-green)] outline-none bg-white font-bold"
+                    onChange={e => setRole('master_admin')}
+                    className="w-full border border-slate-300 rounded-xl p-3 text-xs focus:ring-2 focus:ring-[var(--color-saudi-green)] outline-none bg-slate-50 font-bold cursor-not-allowed"
+                    disabled
                   >
-                    <option value="master_admin">Master Admin (Full Control)</option>
-                    <option value="admin">Admin (Operations)</option>
-                    <option value="secondary_admin">Secondary Admin</option>
-                    <option value="manager">Manager</option>
-                    <option value="editor">Editor (Content)</option>
-                    <option value="driver">Driver (Chauffeur)</option>
+                    <option value="master_admin">Master Admin (Full System Control)</option>
                   </select>
                 </div>
 

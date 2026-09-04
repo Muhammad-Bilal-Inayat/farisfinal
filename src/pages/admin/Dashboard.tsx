@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { 
   Calendar, Users, Car, Map, Settings, Monitor, MessageSquare, LogOut, 
   LayoutDashboard, Banknote, Globe, ExternalLink, Menu, X, 
-  RefreshCw, ShieldCheck, CheckCircle2, AlertCircle, Trash2, Zap, Star
+  RefreshCw, ShieldCheck, CheckCircle2, AlertCircle, Trash2, Zap, Star, Archive
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import BookingsAdmin from './BookingsAdmin';
@@ -19,9 +19,13 @@ import ReviewsAdmin from "./ReviewsAdmin";
 import DriversAdmin from "./DriversAdmin";
 import UsersAdmin from './UsersAdmin';
 import ActivityAdmin from './ActivityAdmin';
-import DriverDashboard from './DriverDashboard';
+import AuditTimelineAdmin from './AuditTimelineAdmin';
+import SystemHealthAdmin from './SystemHealthAdmin';
+import BookingSyncDiagnosticsAdmin from './BookingSyncDiagnosticsAdmin';
+import ArchivedBookingsAdmin from './ArchivedBookingsAdmin';
+import AdminGuideTab from './AdminGuideTab';
 import LanguageSwitcher from "../../components/LanguageSwitcher";
-import { Code, Eye, UserCheck, Activity } from 'lucide-react';
+import { Code, Eye, UserCheck, Activity, Clock, HelpCircle, Database } from 'lucide-react';
 import { clearAppCache } from '../../utils/registerServiceWorker';
 
 
@@ -170,10 +174,6 @@ export default function AdminDashboard({ initialTab }: { initialTab?: string }) 
     setCurrentUser(null);
   };
 
-  if (token && currentUser?.role === 'driver') {
-    return <DriverDashboard onLogout={handleLogout} />;
-  }
-
   if (!token) {
     return (
       <div className="fixed inset-0 z-50 min-h-screen bg-gradient-to-br from-[var(--color-dark-charcoal)] via-slate-900 to-black flex items-center justify-center p-4">
@@ -269,6 +269,7 @@ export default function AdminDashboard({ initialTab }: { initialTab?: string }) 
       items: [
         { id: 'dashboard', icon: LayoutDashboard, label: t('admin_dashboard') },
         { id: 'bookings', icon: Calendar, label: t('admin_bookings'), badge: pendingBookingsCount },
+        { id: 'archived_bookings', icon: Archive, label: i18n.language === 'ar' ? 'أرشيف الحجوزات القديمة' : 'Archived Bookings' },
         { id: 'customers', icon: Users, label: t('admin_customers') },
         { id: 'messages', icon: MessageSquare, label: t('admin_messages'), badge: unreadMsgCount }
       ]
@@ -297,10 +298,20 @@ export default function AdminDashboard({ initialTab }: { initialTab?: string }) 
       group: i18n.language === 'ar' ? 'الأمان والصلاحيات العليا' : 'Master Security & Audit',
       items: [
         { id: 'users', icon: ShieldCheck, label: i18n.language === 'ar' ? 'إدارة المسؤولين' : 'Admin Users' },
-        { id: 'activity', icon: Activity, label: i18n.language === 'ar' ? 'سجل النشاط' : 'Activity Logs' }
+        { id: 'activity', icon: Activity, label: i18n.language === 'ar' ? 'سجل النشاط' : 'Activity Logs' },
+        { id: 'audit_timeline', icon: Clock, label: i18n.language === 'ar' ? 'الخط الزمني للتعديلات' : 'Audit Timeline' },
+        { id: 'system_health', icon: Database, label: i18n.language === 'ar' ? 'صحة النظام والحماية' : 'System Health & Security' },
+        { id: 'booking_diagnostics', icon: Activity, label: i18n.language === 'ar' ? 'تشخيص ومزامنة الحجوزات' : 'Booking Sync Diagnostics' }
       ]
     });
   }
+
+  navGroups.push({
+    group: i18n.language === 'ar' ? 'المساعدة والدليل' : 'Help & Reference',
+    items: [
+      { id: 'admin_guide', icon: HelpCircle, label: i18n.language === 'ar' ? 'دليل الإدارة والتعديل' : 'Admin Guide & Manual' }
+    ]
+  });
 
   return (
     <div className="fixed inset-0 z-50 flex h-screen bg-slate-100 overflow-hidden font-sans text-slate-800">
@@ -492,6 +503,7 @@ export default function AdminDashboard({ initialTab }: { initialTab?: string }) 
           <div className="max-w-7xl mx-auto pb-16">
             {activeTab === 'dashboard' && <DashboardHome setActiveTab={setActiveTab} />}
             {activeTab === 'bookings' && <BookingsAdmin />}
+            {activeTab === 'archived_bookings' && <ArchivedBookingsAdmin />}
             {activeTab === 'drivers' && <DriversAdmin />}
             {activeTab === 'vehicles' && <ManageVehicles />}
             {activeTab === 'routes' && <RoutesAdmin />}
@@ -503,6 +515,10 @@ export default function AdminDashboard({ initialTab }: { initialTab?: string }) 
             {activeTab === 'page_builder' && <PageBuilderAdmin />}
             {activeTab === 'users' && <UsersAdmin />}
             {activeTab === 'activity' && <ActivityAdmin />}
+            {activeTab === 'audit_timeline' && <AuditTimelineAdmin />}
+            {activeTab === 'system_health' && <SystemHealthAdmin />}
+            {activeTab === 'booking_diagnostics' && <BookingSyncDiagnosticsAdmin />}
+            {activeTab === 'admin_guide' && <AdminGuideTab />}
           </div>
         </div>
       </main>

@@ -72,7 +72,7 @@ export default function Home() {
   const { companyName, websiteDomain, homePageConfig } = useSiteSettings();
   const { t, i18n } = useTranslation();
   const isAr = i18n.language === 'ar';
-  const { openTracker } = useBookingTracker();
+  const { openTracker, vehicleVersion } = useBookingTracker();
   const [vehicles, setVehicles] = useState<any[]>([]);
   const [testimonials, setTestimonials] = useState<any[]>([]);
   const [currentSlide, setCurrentSlide] = useState(0);
@@ -180,14 +180,18 @@ export default function Home() {
   useEffect(() => {
     fetch('/api/vehicles')
       .then(res => res.json())
-      .then(data => setVehicles(data.filter((v: any) => v.active !== 0)))
+      .then(data => {
+        if (Array.isArray(data)) {
+          setVehicles(data.filter((v: any) => v.status !== 'archived'));
+        }
+      })
       .catch(console.error);
 
     fetch('/api/testimonials')
       .then(res => res.json())
       .then(data => setTestimonials(data))
       .catch(console.error);
-  }, []);
+  }, [vehicleVersion]);
 
   return (
     <div className="bg-white text-[var(--color-dark-charcoal)] flex flex-col">
@@ -523,18 +527,18 @@ export default function Home() {
               </div>
 
               <div className="grid grid-cols-3 gap-1.5 sm:gap-2 mt-2.5 sm:mt-3">
-                <div className="bg-[#F1F4F8] p-2 sm:p-2.5 rounded-xl border border-slate-200/80 text-center shadow-2xs">
-                  <span className="text-[10px] sm:text-xs text-gray-600 font-bold uppercase block">GMC XL 2025</span>
-                  <span className="text-xs sm:text-sm md:text-base font-extrabold text-[var(--color-dark-charcoal)]">7 {t('pass')} • 8 {t('luggage_short')}</span>
-                </div>
-                <div className="bg-[#F1F4F8] p-2 sm:p-2.5 rounded-xl border border-slate-200/80 text-center shadow-2xs">
-                  <span className="text-[10px] sm:text-xs text-gray-600 font-bold uppercase block">Hyundai Staria</span>
-                  <span className="text-xs sm:text-sm md:text-base font-extrabold text-[var(--color-dark-charcoal)]">7-9 {t('pass')} • 6 {t('luggage_short')}</span>
-                </div>
-                <div className="bg-[#F1F4F8] p-2 sm:p-2.5 rounded-xl border border-slate-200/80 text-center shadow-2xs">
-                  <span className="text-[10px] sm:text-xs text-gray-600 font-bold uppercase block">Ford Taurus</span>
-                  <span className="text-xs sm:text-sm md:text-base font-extrabold text-[var(--color-dark-charcoal)]">4 {t('pass')} • 3 {t('luggage_short')}</span>
-                </div>
+                {(vehicles.length > 0 ? vehicles.slice(0, 3) : [
+                  { id: 1, name: 'GMC XL 2025', passengerCapacity: 7, luggageCapacity: 8 },
+                  { id: 2, name: 'Hyundai Staria', passengerCapacity: 8, luggageCapacity: 8 },
+                  { id: 3, name: 'Ford Taurus', passengerCapacity: 4, luggageCapacity: 3 }
+                ]).map((veh: any, idx: number) => (
+                  <div key={veh.id || idx} className="bg-[#F1F4F8] p-2 sm:p-2.5 rounded-xl border border-slate-200/80 text-center shadow-2xs">
+                    <span className="text-[10px] sm:text-xs text-gray-600 font-bold uppercase block truncate">{veh.name}</span>
+                    <span className="text-xs sm:text-sm md:text-base font-extrabold text-[var(--color-dark-charcoal)]">
+                      {veh.passengerCapacity} {t('pass')} • {veh.luggageCapacity} {t('luggage_short')}
+                    </span>
+                  </div>
+                ))}
               </div>
             </motion.div>
 
@@ -704,62 +708,98 @@ export default function Home() {
         </div>
       </VisualSection>
 
-      {/* 5. EXPLORE FLEET CARDS WITH STREAMLINED VERTICAL PADDING */}
-      <VisualSection id="vehicles_section" style={getSectionStyle('vehicles', 6)} className="py-8 sm:py-10 md:py-14 bg-white border-b border-slate-200/80">
-        <div className="container mx-auto px-3.5 sm:px-6 lg:px-10">
-          <div className="text-center max-w-2xl mx-auto mb-6 sm:mb-8">
-            <VisualText as="span" id="fleet_tag" className="text-[10px] sm:text-xs uppercase font-bold tracking-[0.2em] text-[var(--color-saudi-green)] block mb-1">{t('premium_fleet')}</VisualText>
-            <VisualText as="h2" id="fleet_title" className="text-2xl sm:text-3xl md:text-4xl font-extrabold text-[var(--color-dark-charcoal)]">{t('explore_fleet')}</VisualText>
-            <VisualText as="p" id="fleet_subtitle" className="mt-1 text-xs sm:text-sm text-[var(--color-dark-charcoal)]/60 font-medium">{t('fleet_subtitle')}</VisualText>
+      {/* 5. EXPLORE FLEET CARDS WITH PREMIUM TABLET & LAPTOP UI/UX */}
+      <VisualSection id="vehicles_section" style={getSectionStyle('vehicles', 6)} className="py-16 sm:py-20 md:py-24 bg-gradient-to-b from-[#F8FAFC] via-white to-[#F8FAFC] border-b border-slate-200/90">
+        <div className="container mx-auto px-4 sm:px-6 lg:px-12 max-w-7xl">
+          <div className="text-center max-w-3xl mx-auto mb-12 sm:mb-16">
+            <div className="inline-flex items-center gap-2.5 bg-emerald-50 border border-emerald-200 px-4 py-1.5 rounded-full mb-3 shadow-2xs">
+              <span className="w-2.5 h-2.5 rounded-full bg-[var(--color-saudi-green)] animate-pulse"></span>
+              <VisualText as="span" id="fleet_tag" className="text-xs uppercase font-extrabold tracking-[0.2em] text-[var(--color-saudi-green)]">{t('premium_fleet')}</VisualText>
+            </div>
+            <VisualText as="h2" id="fleet_title" className="text-3xl sm:text-4xl md:text-5xl font-black text-[var(--color-dark-charcoal)] tracking-tight">{t('explore_fleet')}</VisualText>
+            <VisualText as="p" id="fleet_subtitle" className="mt-3 text-base sm:text-lg text-[var(--color-dark-charcoal)]/70 font-medium max-w-2xl mx-auto leading-relaxed">{t('fleet_subtitle')}</VisualText>
           </div>
           
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mb-6 sm:mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8 mb-12">
             {vehicles.map((v) => (
-              <VisualDiv id={`vehicle_card_${v.id}`} key={v.id} className="bg-[#F8FAFC] hover:bg-white rounded-xl overflow-hidden shadow-xs border border-slate-200/90 hover:shadow-lg hover:border-emerald-300 transition-all duration-300 flex flex-col group">
-                <Link to={`/routes-rates?vehicle=${v.id}`} className="block aspect-[16/10] relative overflow-hidden bg-gray-100 cursor-pointer">
-                  <VisualImage width="400" height="250" loading="lazy" id={`vehicle_img_${v.id}`} src={getVehicleImage(v.name)} alt={v.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
-                  <div className="absolute top-2.5 right-2.5 sm:top-3 sm:right-3 bg-[var(--color-saudi-green)] text-white px-2 sm:px-2.5 py-0.5 rounded text-[9px] sm:text-[10px] font-bold uppercase tracking-wider shadow-md">
+              <VisualDiv id={`vehicle_card_${v.id}`} key={v.id} className="bg-white rounded-3xl overflow-hidden shadow-md border border-slate-200/80 hover:shadow-2xl hover:border-emerald-400 transition-all duration-300 flex flex-col group transform hover:-translate-y-1.5">
+                
+                {/* Image Header with uniform aspect ratio & dark gradient overlay */}
+                <Link to={`/routes-rates?vehicle=${v.id}`} className="block aspect-[16/10] relative overflow-hidden bg-slate-900 cursor-pointer">
+                  <VisualImage width="600" height="375" loading="lazy" id={`vehicle_img_${v.id}`} src={getVehicleImageByName(v.name, v.imageUrl)} alt={v.name} className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-700 opacity-95 group-hover:opacity-100" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent"></div>
+                  
+                  {/* Model Tag */}
+                  <div className="absolute top-4 right-4 rtl:right-auto rtl:left-4 bg-[var(--color-saudi-green)] text-white px-3.5 py-1.5 rounded-xl text-xs font-black uppercase tracking-wider shadow-lg backdrop-blur-md">
                     {v.year || '2025'} {t('model')}
                   </div>
+
+                  {/* Vehicle Name floating badge over image bottom */}
+                  <div className="absolute bottom-3 left-4 right-4 text-white">
+                    <VisualText as="h3" id={`vehicle_title_${v.id}`} className="text-lg sm:text-xl font-black tracking-wide drop-shadow-md text-white">{v.name}</VisualText>
+                  </div>
                 </Link>
-                <div className="p-3.5 sm:p-5 flex-grow flex flex-col">
-                  <VisualText as="h3" id={`vehicle_title_${v.id}`} className="text-base sm:text-xl font-bold text-[var(--color-dark-charcoal)] mb-1 uppercase tracking-wide">{v.name}</VisualText>
-                  <div className="flex gap-3 sm:gap-4 mb-3 sm:mb-4 text-xs sm:text-sm md:text-base text-[var(--color-dark-charcoal)]/80 border-b border-slate-200/80 pb-2.5 sm:pb-3 font-semibold uppercase tracking-wider">
-                    <span className="flex items-center gap-1"><Users size={13} className="text-[var(--color-luxury-gold)]" /> {v.passengerCapacity} {t('pass')}</span>
-                    <span className="flex items-center gap-1"><Briefcase size={13} className="text-[var(--color-luxury-gold)]" /> {v.luggageCapacity} {t('luggage_short')}</span>
+
+                {/* Card Body */}
+                <div className="p-6 flex-grow flex flex-col justify-between">
+                  
+                  {/* Specs Grid */}
+                  <div className="grid grid-cols-2 gap-3 mb-4 py-3.5 px-4 bg-slate-50/90 rounded-2xl border border-slate-100 text-xs sm:text-sm text-slate-700 font-bold uppercase tracking-wider">
+                    <span className="flex items-center gap-2 text-[#0c2e22]"><Users size={16} className="text-[var(--color-luxury-gold)]" /> {v.passengerCapacity} {t('pass')}</span>
+                    <span className="flex items-center gap-2 text-[#0c2e22]"><Briefcase size={16} className="text-[var(--color-luxury-gold)]" /> {v.luggageCapacity} {t('luggage_short')}</span>
                   </div>
-                  <div className="mt-auto pt-2.5 sm:pt-3 border-t border-slate-200/80">
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <div className="shrink-0">
-                        <p className="text-[9px] sm:text-xs text-[var(--color-luxury-gold)] uppercase tracking-wider font-extrabold leading-none">{t('starting_from')}</p>
-                        <p className="text-lg sm:text-2xl font-black text-[var(--color-saudi-green)] leading-tight mt-0.5">
-                          {v.startingPrice} <span className="text-[11px] sm:text-xs font-semibold text-gray-500">{t('sar')}</span>
-                        </p>
+
+                  {/* Vehicle Description / Features text from admin if present */}
+                  {v.description && (
+                    <p className="text-xs text-slate-600 mb-4 line-clamp-2 leading-relaxed">
+                      {v.description}
+                    </p>
+                  )}
+
+                  {/* Price & Actions Footer */}
+                  <div className="pt-2 border-t border-slate-100">
+                    <div className="flex items-center justify-between gap-4 mb-4">
+                      <div>
+                        <p className="text-[10px] sm:text-xs text-[var(--color-luxury-gold)] uppercase tracking-wider font-extrabold">{t('starting_from')}</p>
+                        <div className="flex items-baseline gap-1 mt-0.5">
+                          <span className="text-2xl sm:text-3xl font-black text-[var(--color-saudi-green)] leading-none">{v.startingPrice}</span>
+                          <span className="text-xs font-bold text-slate-500">{t('sar')}</span>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-1.5 sm:gap-2">
-                        <Link 
-                          to={`/routes-rates?vehicle=${v.id}`}
-                          className="text-center text-[11px] sm:text-sm font-bold text-[var(--color-saudi-green)] border-2 border-[var(--color-saudi-green)] hover:bg-[var(--color-saudi-green)] hover:text-white px-2 sm:px-3.5 py-1.5 sm:py-2 rounded-xl transition-colors min-h-[34px] sm:min-h-[40px] flex items-center justify-center whitespace-nowrap"
-                        >
-                          {isAr ? 'عرض الأسعار' : 'View Rates'}
-                        </Link>
-                        <Link 
-                          to={`/booking?vehicle=${v.id}`} 
-                          className="text-center text-[11px] sm:text-sm font-bold text-white hover:text-white bg-[var(--color-saudi-green)] hover:bg-[var(--color-saudi-emerald)] px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-xl transition-colors min-h-[34px] sm:min-h-[40px] flex items-center justify-center whitespace-nowrap shadow-xs"
-                        >
-                          <span>{t('book_now')}</span>
-                          <span className="rtl:rotate-180 inline-block ml-1">➔</span>
-                        </Link>
-                      </div>
+                      <span className="text-xs font-bold text-emerald-800 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-200/80">
+                        ✨ VIP Chauffeur
+                      </span>
                     </div>
+
+                    {/* Button Group: View Rates & Book Now */}
+                    <div className="grid grid-cols-2 gap-2.5">
+                      <Link 
+                        to={`/routes-rates?vehicle=${v.id}`}
+                        className="text-center text-xs sm:text-sm font-extrabold text-[var(--color-saudi-green)] bg-emerald-50/80 hover:bg-[var(--color-saudi-green)] hover:text-white border border-emerald-200 hover:border-transparent py-2.5 px-3 rounded-xl transition-all flex items-center justify-center whitespace-nowrap shadow-2xs"
+                      >
+                        {isAr ? 'عرض الأسعار' : 'View Rates'}
+                      </Link>
+                      <Link 
+                        to={`/booking?vehicle=${v.id}`} 
+                        className="text-center text-xs sm:text-sm font-extrabold text-white bg-[var(--color-saudi-green)] hover:bg-[var(--color-saudi-emerald)] py-2.5 px-3 rounded-xl transition-all flex items-center justify-center whitespace-nowrap shadow-md hover:shadow-lg"
+                      >
+                        <span>{t('book_now')}</span>
+                        <span className="rtl:rotate-180 inline-block ml-1">➔</span>
+                      </Link>
+                    </div>
+
                   </div>
+
                 </div>
               </VisualDiv>
             ))}
           </div>
           
           <div className="text-center">
-            <VisualButton as={Link} id="view_full_fleet_btn" to="/vehicles" className="inline-block bg-[var(--color-saudi-green)] text-white px-5 sm:px-6 py-2.5 sm:py-3 rounded-xl font-bold uppercase tracking-widest text-[11px] sm:text-xs hover:bg-[var(--color-saudi-emerald)] transition-colors shadow-md">{t('view_full_fleet')}</VisualButton>
+            <VisualButton as={Link} id="view_full_fleet_btn" to="/vehicles" className="inline-flex items-center gap-2.5 bg-[var(--color-saudi-green)] text-white px-9 py-4 rounded-2xl font-black uppercase tracking-widest text-xs sm:text-sm hover:bg-[var(--color-saudi-emerald)] transition-all shadow-xl hover:shadow-2xl transform hover:-translate-y-0.5">
+              <span>{t('view_full_fleet')}</span>
+              <span className="rtl:rotate-180">➔</span>
+            </VisualButton>
           </div>
         </div>
       </VisualSection>

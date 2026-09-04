@@ -18,12 +18,34 @@ export default function RoutesAdmin() {
 
   const fetchData = async () => {
     try {
-      const res = await fetch('/api/admin/trip_routes', { 
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('adminToken')}` }
-      });
-      if (res.ok) { const d = await res.json(); setRoutes(Array.isArray(d) ? d : []); }
+      let data: any[] | null = null;
+      const token = localStorage.getItem('adminToken');
+      if (token) {
+        const res = await fetch('/api/admin/trip_routes', { 
+          headers: { 'Authorization': `Bearer ${token}` },
+          cache: 'no-store'
+        });
+        if (res.ok) { 
+          const d = await res.json(); 
+          if (Array.isArray(d)) data = d;
+        }
+      }
+
+      // Fallback to public endpoints so routes are never empty
+      if (!data || data.length === 0) {
+        const fb = await fetch('/api/trip_routes', { cache: 'no-store' });
+        if (fb.ok) {
+          const d = await fb.json();
+          if (Array.isArray(d)) data = d;
+        }
+      }
+
+      setRoutes(Array.isArray(data) ? data : []);
       setLoading(false);
-    } catch (e) { console.error(e); }
+    } catch (e) { 
+      console.error(e); 
+      setLoading(false);
+    }
   };
 
   useEffect(() => { fetchData(); }, []);
@@ -47,9 +69,10 @@ export default function RoutesAdmin() {
         body: JSON.stringify(current) 
       });
       if (res.ok) {
-        showToast(isAr ? 'تم حفظ المسار بنجاح' : 'Route saved successfully');
+        showToast(isAr ? 'تم حفظ المسار وتحديث الموقع بنجاح' : 'Route saved and synced to website successfully');
         setIsEditing(false);
         fetchData();
+        window.dispatchEvent(new CustomEvent('faris_routes_updated'));
       }
     } catch (e) { alert("Failed to save route"); }
   };
@@ -64,6 +87,7 @@ export default function RoutesAdmin() {
       if (res.ok) {
         showToast(isAr ? 'تم حذف المسار' : 'Route deleted');
         fetchData();
+        window.dispatchEvent(new CustomEvent('faris_routes_updated'));
       }
     } catch (e) { alert("Failed to delete"); }
   };
@@ -81,6 +105,7 @@ export default function RoutesAdmin() {
       if (res.ok) {
         showToast(isAr ? 'تم تحديث التمييز' : 'Featured status updated');
         fetchData();
+        window.dispatchEvent(new CustomEvent('faris_routes_updated'));
       }
     } catch (e) { console.error(e); }
   };

@@ -27,7 +27,34 @@ export default defineConfig(() => {
       assetsInlineLimit: 4096,
       rollupOptions: {
         output: {
-          manualChunks: undefined
+          manualChunks(id) {
+            if (id.includes('node_modules')) {
+              if (id.includes('leaflet')) {
+                return 'vendor-leaflet';
+              }
+              if (id.includes('recharts') || id.includes('d3-')) {
+                return 'vendor-recharts';
+              }
+              if (id.includes('@dnd-kit')) {
+                return 'vendor-dnd';
+              }
+              if (id.includes('qrcode')) {
+                return 'vendor-qrcode';
+              }
+              if (id.includes('lucide-react')) {
+                return 'vendor-icons';
+              }
+              if (id.includes('motion')) {
+                return 'vendor-motion';
+              }
+              if (id.includes('react-router') || id.includes('react-helmet') || id.includes('i18next')) {
+                return 'vendor-framework';
+              }
+              if (id.includes('react') || id.includes('react-dom')) {
+                return 'vendor-react';
+              }
+            }
+          }
         }
       },
       sourcemap: false,

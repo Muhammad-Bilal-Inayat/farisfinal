@@ -17,6 +17,12 @@ export default function BookingsAdmin() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(25);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalRecords, setTotalRecords] = useState(0);
   
   // Modals state
   const [selectedBooking, setSelectedBooking] = useState<any | null>(null);
@@ -30,12 +36,32 @@ export default function BookingsAdmin() {
     const token = localStorage.getItem('adminToken');
     if (!token) return;
     try {
+      const queryParams = new URLSearchParams({
+        status: statusFilter,
+        search: search.trim(),
+        startDate,
+        endDate,
+        page: page.toString(),
+        limit: limit.toString()
+      });
+
       const [bRes, vRes, dRes] = await Promise.all([
-        fetch('/api/admin/bookings', { headers: { 'Authorization': `Bearer ${token}` } }),
+        fetch(`/api/admin/bookings?${queryParams.toString()}`, { headers: { 'Authorization': `Bearer ${token}` } }),
         fetch('/api/admin/vehicles', { headers: { 'Authorization': `Bearer ${token}` } }),
         fetch('/api/admin/drivers', { headers: { 'Authorization': `Bearer ${token}` } })
       ]);
-      if (bRes.ok) { const d = await bRes.json(); setBookings(Array.isArray(d) ? d : []); }
+      if (bRes.ok) { 
+        const d = await bRes.json();
+        if (Array.isArray(d)) {
+          setBookings(d);
+          setTotalRecords(d.length);
+          setTotalPages(1);
+        } else if (d && Array.isArray(d.bookings)) {
+          setBookings(d.bookings);
+          setTotalRecords(d.total || 0);
+          setTotalPages(d.totalPages || 1);
+        }
+      }
       if (vRes.ok) { const d = await vRes.json(); setVehicles(Array.isArray(d) ? d : []); }
       if (dRes.ok) { const d = await dRes.json(); setDrivers(Array.isArray(d) ? d : []); }
     } catch (e) {
@@ -47,7 +73,21 @@ export default function BookingsAdmin() {
 
   useEffect(() => {
     fetchBookingsAndVehicles();
-  }, []);
+
+    // Auto-refresh every 12 seconds so new website orders appear in real-time
+    const interval = setInterval(fetchBookingsAndVehicles, 12000);
+
+    // Also refresh immediately when booking event fires or tab gains focus
+    const handleSync = () => fetchBookingsAndVehicles();
+    window.addEventListener('faris_bookings_updated', handleSync);
+    window.addEventListener('focus', handleSync);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('faris_bookings_updated', handleSync);
+      window.removeEventListener('focus', handleSync);
+    };
+  }, [statusFilter, search, startDate, endDate, page, limit]);
 
   const triggerToast = (msg: string) => {
     setActionSuccess(msg);
@@ -281,21 +321,10 @@ export default function BookingsAdmin() {
     document.body.removeChild(link);
   };
 
-  const filtered = bookings.filter(b => {
-    const matchesSearch = 
-      (b.bookingId || '').toLowerCase().includes(search.toLowerCase()) || 
-      (b.customerName || '').toLowerCase().includes(search.toLowerCase()) ||
-      (b.customerPhone || '').includes(search) ||
-      (b.pickup || '').toLowerCase().includes(search.toLowerCase()) ||
-      (b.destination || '').toLowerCase().includes(search.toLowerCase());
-
-    if (!matchesSearch) return false;
-    if (statusFilter === 'all') return true;
-    return (b.status || 'Pending').toLowerCase() === statusFilter.toLowerCase();
-  });
+  const filtered = bookings;
 
   const counts = {
-    all: bookings.length,
+    all: totalRecords,
     pending: bookings.filter(b => (b.status || 'Pending').toLowerCase() === 'pending').length,
     confirmed: bookings.filter(b => b.status?.toLowerCase() === 'confirmed').length,
     completed: bookings.filter(b => b.status?.toLowerCase() === 'completed').length,
@@ -411,6 +440,49 @@ export default function BookingsAdmin() {
         </div>
       </div>
 
+      {/* Date Range & Server Filters Bar */}
+      <div className="bg-white rounded-2xl p-4 shadow-xs border border-slate-200/80 flex flex-wrap items-center justify-between gap-4">
+        <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
+          <div className="flex items-center gap-1.5 text-xs font-bold text-slate-700">
+            <CalendarIcon size={14} className="text-slate-400" />
+            <span>{isAr ? 'من تاريخ:' : 'From:'}</span>
+            <input 
+              type="date"
+              value={startDate}
+              onChange={e => { setStartDate(e.target.value); setPage(1); }}
+              className="border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs font-medium bg-slate-50 text-slate-800 focus:ring-2 focus:ring-emerald-500 outline-none"
+            />
+          </div>
+          <div className="flex items-center gap-1.5 text-xs font-bold text-slate-700">
+            <span>{isAr ? 'إلى:' : 'To:'}</span>
+            <input 
+              type="date"
+              value={endDate}
+              onChange={e => { setEndDate(e.target.value); setPage(1); }}
+              className="border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs font-medium bg-slate-50 text-slate-800 focus:ring-2 focus:ring-emerald-500 outline-none"
+            />
+          </div>
+          {(startDate || endDate || search || statusFilter !== 'all') && (
+            <button
+              onClick={() => {
+                setStartDate('');
+                setEndDate('');
+                setSearch('');
+                setStatusFilter('all');
+                setPage(1);
+              }}
+              className="text-xs font-bold text-red-600 hover:text-red-700 bg-red-50 hover:bg-red-100 px-3 py-1.5 rounded-lg transition-colors cursor-pointer"
+            >
+              {isAr ? 'إعادة ضبط الفلاتر' : 'Reset Filters'}
+            </button>
+          )}
+        </div>
+
+        <div className="text-xs font-bold text-slate-500">
+          {isAr ? `إجمالي الحجوزات: ${totalRecords}` : `Total Records: ${totalRecords}`}
+        </div>
+      </div>
+
       {/* Bookings Table */}
       <div className="bg-white rounded-2xl shadow-xs border border-slate-200/80 overflow-hidden">
         <div className="overflow-x-auto">
@@ -461,10 +533,29 @@ export default function BookingsAdmin() {
                     {/* Guest Details */}
                     <td className="p-4">
                       <div className="font-bold text-slate-900">{b.customerName || 'Guest'}</div>
-                      <div className="text-xs text-slate-600 flex items-center gap-1 mt-0.5">
-                        <Phone size={11} className="text-slate-400 shrink-0" />
-                        <span>{b.whatsapp || b.phone || b.customerPhone || '-'}</span>
-                      </div>
+                      {(() => {
+                        const { raw, clean } = getCustomerPhone(b);
+                        if (!raw) return <div className="text-xs text-slate-400 mt-0.5">-</div>;
+                        return (
+                          <div className="text-xs text-slate-600 flex items-center gap-1 mt-0.5">
+                            <Phone size={11} className="text-slate-400 shrink-0" />
+                            {clean ? (
+                              <a
+                                href={`https://wa.me/${clean}`}
+                                target="_blank"
+                                rel="noreferrer"
+                                title={isAr ? 'مراسلة العميل عبر واتساب' : 'Open WhatsApp Chat'}
+                                className="font-bold text-emerald-700 hover:text-emerald-900 hover:underline flex items-center gap-1"
+                              >
+                                <span>{raw}</span>
+                                <MessageCircle size={11} className="text-emerald-600 shrink-0" />
+                              </a>
+                            ) : (
+                              <span>{raw}</span>
+                            )}
+                          </div>
+                        );
+                      })()}
                       {b.customerEmail && <div className="text-[11px] text-slate-400">{b.customerEmail}</div>}
                     </td>
 
@@ -533,18 +624,34 @@ export default function BookingsAdmin() {
                       )}
                     </td>
 
-                    {/* Status Badge */}
+                    {/* Status Badge & Quick Action Dropdown */}
                     <td className="p-4">
-                      <span className={`px-2.5 py-1 rounded-full text-xs font-bold inline-block shadow-2xs whitespace-nowrap ${
-                        b.status?.toLowerCase() === 'confirmed' ? 'bg-[var(--color-saudi-green)] text-white border border-[var(--color-saudi-emerald)]' :
-                        b.status?.toLowerCase().includes('chauffeur') || b.status?.toLowerCase().includes('driver') ? 'bg-indigo-600 text-white border border-indigo-700' :
-                        b.status?.toLowerCase() === 'completed' ? 'bg-blue-600 text-white border border-blue-700' :
-                        b.status?.toLowerCase() === 'cancelled' ? 'bg-red-600 text-white border border-red-700' :
-                        b.status?.toLowerCase() === 'in progress' ? 'bg-amber-600 text-white border border-amber-700' :
-                        'bg-yellow-500 text-white border border-yellow-600'
-                      }`}>
-                        {b.status || 'Pending'}
-                      </span>
+                      <div className="space-y-1.5">
+                        <span className={`px-2.5 py-1 rounded-full text-xs font-bold inline-block shadow-2xs whitespace-nowrap ${
+                          b.status?.toLowerCase() === 'confirmed' ? 'bg-[var(--color-saudi-green)] text-white border border-[var(--color-saudi-emerald)]' :
+                          b.status?.toLowerCase().includes('chauffeur') || b.status?.toLowerCase().includes('driver') ? 'bg-indigo-600 text-white border border-indigo-700' :
+                          b.status?.toLowerCase() === 'completed' ? 'bg-blue-600 text-white border border-blue-700' :
+                          b.status?.toLowerCase() === 'cancelled' ? 'bg-red-600 text-white border border-red-700' :
+                          b.status?.toLowerCase() === 'in progress' ? 'bg-amber-600 text-white border border-amber-700' :
+                          'bg-yellow-500 text-white border border-yellow-600'
+                        }`}>
+                          {b.status || 'Pending'}
+                        </span>
+                        <div>
+                          <select
+                            value={b.status || 'Pending'}
+                            onChange={(e) => updateStatus(b.id, e.target.value)}
+                            title={isAr ? 'تحديث سريع للحالة' : 'Quick Status Update'}
+                            className="text-[11px] font-bold border border-slate-300 rounded-md px-2 py-1 bg-white text-slate-700 cursor-pointer shadow-2xs hover:border-emerald-600 outline-none"
+                          >
+                            <option value="Pending">{isAr ? 'قيد الانتظار (Pending)' : 'Pending'}</option>
+                            <option value="Confirmed">{isAr ? 'مؤكد (Confirmed)' : 'Confirmed'}</option>
+                            <option value="In Progress">{isAr ? 'جاري التنفيذ (In Progress)' : 'In Progress'}</option>
+                            <option value="Completed">{isAr ? 'مكتمل (Completed)' : 'Completed'}</option>
+                            <option value="Cancelled">{isAr ? 'ملغي (Cancelled)' : 'Cancelled'}</option>
+                          </select>
+                        </div>
+                      </div>
                     </td>
 
                     {/* Action Buttons */}
@@ -597,7 +704,10 @@ export default function BookingsAdmin() {
                         {/* Edit Booking */}
                         <button 
                           onClick={() => {
-                            setEditForm({ ...b });
+                            setEditForm({ 
+                              ...b, 
+                              customerPhone: b.customerPhone || b.whatsapp || b.phone || '' 
+                            });
                             setIsEditing(true);
                           }} 
                           title={isAr ? 'تعديل الحجز' : 'Edit Booking'}
@@ -623,6 +733,31 @@ export default function BookingsAdmin() {
           </table>
         </div>
       </div>
+
+      {/* Pagination Bar */}
+      {totalPages > 1 && (
+        <div className="bg-white rounded-2xl p-4 shadow-xs border border-slate-200/80 flex items-center justify-between">
+          <div className="text-xs font-bold text-slate-600">
+            {isAr ? `الصفحة ${page} من ${totalPages}` : `Page ${page} of ${totalPages}`}
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setPage(p => Math.max(1, p - 1))}
+              disabled={page <= 1}
+              className="px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed"
+            >
+              {isAr ? 'السابق' : 'Previous'}
+            </button>
+            <button
+              onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+              disabled={page >= totalPages}
+              className="px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed"
+            >
+              {isAr ? 'التالي' : 'Next'}
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* VIEW DETAILS / VOUCHER MODAL */}
       {selectedBooking && (

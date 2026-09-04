@@ -6,7 +6,7 @@ import {
   Menu, X, Phone, User, ChevronDown, ChevronRight, Home, 
   Car, MapPin, Sparkles, Compass, Info, HelpCircle, Mail, 
   FileText, Shield, Calendar, MessageSquare, Globe, ArrowRight,
-  Search
+  Search, Star
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import clsx from 'clsx';
@@ -70,11 +70,12 @@ export default function Header() {
     { name: t('home'), path: '/', icon: Home },
     { name: t('vehicles'), path: '/vehicles', icon: Car },
     { name: t('routes_rates'), path: '/routes-rates', icon: MapPin },
-    { name: t('services'), path: '/services', icon: Sparkles },
     { name: t('ziyarat'), path: '/ziyarat', icon: Compass },
+    { name: isAr ? 'التقييمات' : 'Reviews', path: '/reviews', icon: Star },
   ];
 
   const companyLinks = [
+    { name: t('services'), path: '/services', icon: Sparkles },
     { name: t('about'), path: '/about-us', icon: Info },
     { name: t('faq'), path: '/faq', icon: HelpCircle },
     { name: t('contact'), path: '/contact', icon: Mail },

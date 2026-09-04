@@ -61,31 +61,59 @@ export default function BookingWidget({ preselectedVehicleId, onVehicleChange }:
   const isAr = i18n.language === 'ar';
   const { user } = useAuth();
   const { settings } = useWhatsApp();
-  const { openTracker } = useBookingTracker();
+  const { openTracker, vehicleVersion } = useBookingTracker();
   const [searchParams] = useSearchParams();
   
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [routes, setRoutes] = useState<Route[]>([]);
   const [locations, setLocations] = useState<string[]>([]);
   
-  const [tripType, setTripType] = useState<'One Way' | 'Round Trip' | 'Full Day'>('One Way');
-  const [pickup, setPickup] = useState('');
-  const [destination, setDestination] = useState('');
-  const [date, setDate] = useState(() => new Date().toISOString().split('T')[0]);
-  const [time, setTime] = useState('');
-  const [passengers, setPassengers] = useState<number | ''>(2);
-  const [luggage, setLuggage] = useState<number | ''>(2);
-  const [vehicleId, setVehicleId] = useState('');
+  const [tripType, setTripType] = useState<'One Way' | 'Round Trip' | 'Full Day'>(() => {
+    return (localStorage.getItem('faris_booking_tripType') as any) || 'One Way';
+  });
+  const [pickup, setPickup] = useState(() => localStorage.getItem('faris_booking_pickup') || '');
+  const [destination, setDestination] = useState(() => localStorage.getItem('faris_booking_destination') || '');
+  const [date, setDate] = useState(() => localStorage.getItem('faris_booking_date') || new Date().toISOString().split('T')[0]);
+  const [time, setTime] = useState(() => localStorage.getItem('faris_booking_time') || '');
+  const [passengers, setPassengers] = useState<number | ''>(() => {
+    const saved = localStorage.getItem('faris_booking_passengers');
+    return saved !== null ? Number(saved) : 2;
+  });
+  const [luggage, setLuggage] = useState<number | ''>(() => {
+    const saved = localStorage.getItem('faris_booking_luggage');
+    return saved !== null ? Number(saved) : 2;
+  });
+  const [vehicleId, setVehicleId] = useState(() => localStorage.getItem('faris_booking_vehicleId') || '');
   
   // Step Management
-  const [step, setStep] = useState(1);
+  const [step, setStep] = useState<number>(() => {
+    const saved = localStorage.getItem('faris_booking_step');
+    return saved !== null ? Number(saved) : 1;
+  });
   const [touched, setTouched] = useState<Record<string, boolean>>({});
   
   // Contact Details
-  const [customerName, setCustomerName] = useState('');
-  const [phone, setPhone] = useState('');
-  const [email, setEmail] = useState('');
-  const [specialRequest, setSpecialRequest] = useState('');
+  const [customerName, setCustomerName] = useState(() => localStorage.getItem('faris_booking_name') || '');
+  const [phone, setPhone] = useState(() => localStorage.getItem('faris_booking_phone') || '');
+  const [email, setEmail] = useState(() => localStorage.getItem('faris_booking_email') || '');
+  const [specialRequest, setSpecialRequest] = useState(() => localStorage.getItem('faris_booking_special') || '');
+
+  // Save to localStorage on change
+  useEffect(() => {
+    localStorage.setItem('faris_booking_tripType', tripType);
+    localStorage.setItem('faris_booking_pickup', pickup);
+    localStorage.setItem('faris_booking_destination', destination);
+    localStorage.setItem('faris_booking_date', date);
+    localStorage.setItem('faris_booking_time', time);
+    localStorage.setItem('faris_booking_passengers', String(passengers));
+    localStorage.setItem('faris_booking_luggage', String(luggage));
+    localStorage.setItem('faris_booking_vehicleId', vehicleId);
+    localStorage.setItem('faris_booking_step', String(step));
+    localStorage.setItem('faris_booking_name', customerName);
+    localStorage.setItem('faris_booking_phone', phone);
+    localStorage.setItem('faris_booking_email', email);
+    localStorage.setItem('faris_booking_special', specialRequest);
+  }, [tripType, pickup, destination, date, time, passengers, luggage, vehicleId, step, customerName, phone, email, specialRequest]);
 
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState<{ id: string; price: number; minPrice: number; maxPrice: number } | null>(null);
@@ -210,7 +238,7 @@ export default function BookingWidget({ preselectedVehicleId, onVehicleChange }:
         if (qDate) setDate(qDate);
       })
       .catch(console.error);
-  }, [searchParams]);
+  }, [searchParams, vehicleVersion]);
 
   // Car image helper
   const getCarImage = (name: string) => {
@@ -389,8 +417,10 @@ export default function BookingWidget({ preselectedVehicleId, onVehicleChange }:
   // Selected vehicle capacity check
   const selectedVehicleObj = vehicles.find(v => v.id === Number(vehicleId));
   const isOverCapacity = selectedVehicleObj ? Number(passengers) > selectedVehicleObj.passengerCapacity : false;
+  const maxLuggage = selectedVehicleObj ? selectedVehicleObj.luggageCapacity : 50;
+  const isLuggageOverCapacity = selectedVehicleObj ? Number(luggage) > selectedVehicleObj.luggageCapacity : false;
 
-  const isStep1Valid = isPickupValid && isDestinationValid && isVehicleValid && isDateValid && isTimeValid && isPaxValid && !isOverCapacity;
+  const isStep1Valid = isPickupValid && isDestinationValid && isVehicleValid && isDateValid && isTimeValid && isPaxValid && !isOverCapacity && !isLuggageOverCapacity;
 
   const isNameValid = customerName.trim().length >= 2;
   const isPhoneValid = phone.replace(/[^0-9]/g, '').length >= 7;
@@ -450,6 +480,14 @@ export default function BookingWidget({ preselectedVehicleId, onVehicleChange }:
       });
       const data = await res.json();
       if (data.success) {
+        // Clear saved booking persistence upon successful submission
+        [
+          'faris_booking_tripType', 'faris_booking_pickup', 'faris_booking_destination',
+          'faris_booking_date', 'faris_booking_time', 'faris_booking_passengers',
+          'faris_booking_luggage', 'faris_booking_vehicleId', 'faris_booking_step',
+          'faris_booking_name', 'faris_booking_phone', 'faris_booking_email', 'faris_booking_special'
+        ].forEach(k => localStorage.removeItem(k));
+
         setSuccess({
           id: data.bookingId,
           price: priceCalculation.base,
@@ -793,47 +831,45 @@ export default function BookingWidget({ preselectedVehicleId, onVehicleChange }:
             </div>
           </div>
 
-          {/* Vehicle Fleet Selector (Shown if no vehicle is preselected) */}
-          {!selectedVehicleObj && (
-            <div className="flex flex-col">
-              <div className="flex justify-between items-center mb-0.5">
-                <label className="text-[11px] uppercase font-bold text-gray-800 flex items-center gap-1">
-                  <Car size={12} className="text-[var(--color-saudi-green)] shrink-0" />
-                  <span>{isAr ? 'اختر نوع وموديل السيارة *' : 'Select Vehicle Model *'}</span>
-                </label>
-                {isVehicleValid && (
-                  <span className="text-[9px] font-bold text-emerald-600 flex items-center gap-0.5">
-                    <CheckCircle2 size={10} /> {isAr ? 'تم الاختيار' : 'Selected'}
-                  </span>
-                )}
-              </div>
-              
-              <select
-                required
-                value={vehicleId}
-                onBlur={() => setTouched(prev => ({ ...prev, vehicleId: true }))}
-                onChange={(e) => {
-                  setVehicleId(e.target.value);
-                  if (onVehicleChange) onVehicleChange(e.target.value);
-                }}
-                className={`w-full bg-slate-50/70 border px-3 py-2 sm:py-1.5 rounded-xl text-xs sm:text-sm font-semibold text-[var(--color-dark-charcoal)] outline-none transition-all cursor-pointer ${
-                  touched.vehicleId && !isVehicleValid
-                    ? 'border-rose-400 focus:ring-1 focus:ring-rose-400'
-                    : isVehicleValid
-                    ? 'border-emerald-400 focus:ring-1 focus:ring-emerald-400'
-                    : 'border-slate-300 focus:ring-1 focus:ring-[var(--color-luxury-gold)] focus:border-[var(--color-luxury-gold)]'
-                }`}
-                aria-label={isAr ? 'اختر نوع وموديل السيارة' : 'Select Vehicle Model'}
-              >
-                <option value="">{isAr ? '-- اختر موديل السيارة من الأسطول --' : '-- Choose Vehicle Model --'}</option>
-                {vehicles.map(v => (
-                  <option key={v.id} value={v.id}>
-                    {v.name} ({v.passengerCapacity} {t('pass')}, {v.luggageCapacity} {t('luggage_short')}) — {isAr ? `تبدأ من ${v.startingPrice} ريال` : `From ${v.startingPrice} SAR`}
-                  </option>
-                ))}
-              </select>
+          {/* Vehicle Fleet Selector (Always Visible) */}
+          <div className="flex flex-col">
+            <div className="flex justify-between items-center mb-0.5">
+              <label className="text-[11px] uppercase font-bold text-gray-800 flex items-center gap-1">
+                <Car size={12} className="text-[var(--color-saudi-green)] shrink-0" />
+                <span>{isAr ? 'اختر نوع وموديل السيارة *' : 'Select Vehicle Model *'}</span>
+              </label>
+              {isVehicleValid && (
+                <span className="text-[9px] font-bold text-emerald-600 flex items-center gap-0.5">
+                  <CheckCircle2 size={10} /> {isAr ? 'تم الاختيار' : 'Selected'}
+                </span>
+              )}
             </div>
-          )}
+            
+            <select
+              required
+              value={vehicleId}
+              onBlur={() => setTouched(prev => ({ ...prev, vehicleId: true }))}
+              onChange={(e) => {
+                setVehicleId(e.target.value);
+                if (onVehicleChange) onVehicleChange(e.target.value);
+              }}
+              className={`w-full bg-slate-50/70 border px-3 py-2 sm:py-1.5 rounded-xl text-xs sm:text-sm font-semibold text-[var(--color-dark-charcoal)] outline-none transition-all cursor-pointer ${
+                touched.vehicleId && !isVehicleValid
+                  ? 'border-rose-400 focus:ring-1 focus:ring-rose-400'
+                  : isVehicleValid
+                  ? 'border-emerald-400 focus:ring-1 focus:ring-emerald-400'
+                  : 'border-slate-300 focus:ring-1 focus:ring-[var(--color-luxury-gold)] focus:border-[var(--color-luxury-gold)]'
+              }`}
+              aria-label={isAr ? 'اختر نوع وموديل السيارة' : 'Select Vehicle Model'}
+            >
+              <option value="">{isAr ? '-- اختر موديل السيارة من الأسطول --' : '-- Choose Vehicle Model --'}</option>
+              {vehicles.map(v => (
+                <option key={v.id} value={v.id}>
+                  {v.name} ({v.passengerCapacity} {t('pass')}, {v.luggageCapacity} {t('luggage_short')}) — {isAr ? `تبدأ من ${v.startingPrice} ريال` : `From ${v.startingPrice} SAR`}
+                </option>
+              ))}
+            </select>
+          </div>
 
           {/* Date, Time, Passengers & Luggage Grid */}
           <div className="grid grid-cols-2 gap-2 sm:gap-2.5">
@@ -935,18 +971,19 @@ export default function BookingWidget({ preselectedVehicleId, onVehicleChange }:
                 <input
                   type="number"
                   min="0"
-                  max="50"
+                  max={maxLuggage}
                   value={luggage}
                   onChange={(e) => {
                     const val = e.target.value;
-                    setLuggage(val === '' ? '' : Math.max(0, parseInt(val, 10) || 0));
+                    if (val === '') setLuggage('');
+                    else setLuggage(Math.min(maxLuggage, Math.max(0, parseInt(val, 10) || 0)));
                   }}
                   className="w-full text-center bg-transparent py-1 text-xs sm:text-sm font-black text-[var(--color-dark-charcoal)] outline-none"
                   aria-label={t('luggage')}
                 />
                 <button
                   type="button"
-                  onClick={() => setLuggage(prev => Math.min(50, (Number(prev) || 0) + 1))}
+                  onClick={() => setLuggage(prev => Math.min(maxLuggage, (Number(prev) || 0) + 1))}
                   className="w-9 sm:w-10 h-10 flex items-center justify-center text-gray-700 hover:bg-slate-200 active:bg-slate-300 font-black text-base select-none shrink-0 cursor-pointer"
                   aria-label="Increase luggage"
                 >
@@ -958,9 +995,16 @@ export default function BookingWidget({ preselectedVehicleId, onVehicleChange }:
 
           {/* Validation Warnings */}
           {isOverCapacity && selectedVehicleObj && (
-            <div className="text-[10px] font-bold text-rose-700 bg-rose-50 p-2.5 rounded-xl border border-rose-200 flex items-center gap-1.5 leading-tight">
+            <div className="text-[10px] font-bold text-rose-700 bg-rose-50 p-2.5 rounded-xl border border-rose-200 flex items-center gap-1.5 leading-tight mb-2">
               <AlertCircle size={13} className="shrink-0" />
               <span>{isAr ? `الحد الأقصى ${selectedVehicleObj.passengerCapacity} ركاب لسيارة ${selectedVehicleObj.name}` : `Limit: ${selectedVehicleObj.passengerCapacity} pax for ${selectedVehicleObj.name}`}</span>
+            </div>
+          )}
+
+          {isLuggageOverCapacity && selectedVehicleObj && (
+            <div className="text-[10px] font-bold text-rose-700 bg-rose-50 p-2.5 rounded-xl border border-rose-200 flex items-center gap-1.5 leading-tight">
+              <AlertCircle size={13} className="shrink-0" />
+              <span>{isAr ? `الحد الأقصى للأمتعة ${selectedVehicleObj.luggageCapacity} حقائب لسيارة ${selectedVehicleObj.name}` : `Max luggage limit: ${selectedVehicleObj.luggageCapacity} bags for ${selectedVehicleObj.name}`}</span>
             </div>
           )}
 

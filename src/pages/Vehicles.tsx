@@ -16,6 +16,7 @@ import { useTranslation } from 'react-i18next';
 import { Link, useSearchParams } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 import { useSiteSettings } from '../context/SiteSettingsContext';
+import { useBookingTracker } from '../context/BookingTrackerContext';
 import { useWhatsApp } from '../hooks/useWhatsApp';
 import AdBanner from '../components/AdBanner';
 import { getVehicleImageByName } from '../utils/imageUtils';
@@ -77,6 +78,7 @@ export default function Vehicles() {
   const { t, i18n } = useTranslation();
   const isAr = i18n.language === 'ar';
   const { companyName } = useSiteSettings();
+  const { vehicleVersion } = useBookingTracker();
   const { openWhatsApp } = useWhatsApp();
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -99,7 +101,7 @@ export default function Vehicles() {
         console.error('Failed to load vehicles', error);
         setLoading(false);
       });
-  }, []);
+  }, [vehicleVersion]);
 
   const categories = [
     { id: 'all', label: isAr ? 'عرض الكل' : 'All Fleet' },
@@ -260,7 +262,7 @@ export default function Vehicles() {
                       return (
                         <div 
                           key={v.id} 
-                          className="bg-white rounded-2xl overflow-hidden shadow-xs border border-slate-200/90 hover:shadow-xl hover:border-emerald-300 transition-all duration-300 group flex flex-col"
+                          className="bg-white rounded-2xl overflow-hidden shadow-xs border border-slate-200/90 hover:shadow-2xl hover:border-emerald-400 transform hover:-translate-y-1 transition-all duration-300 group flex flex-col h-full"
                         >
                           {/* Image Section */}
                           <div className="aspect-[16/10] relative overflow-hidden bg-slate-50 flex items-center justify-center p-4">
@@ -273,78 +275,100 @@ export default function Vehicles() {
                           </div>
 
                           {/* Content Section */}
-                          <div className="p-5 flex-grow flex flex-col">
+                          <div className="p-5 flex-grow flex flex-col justify-between">
                             {/* Category & Name */}
-                            <div className="mb-4">
-                              {v.category && (
-                                <span className="text-[10px] uppercase font-bold tracking-widest text-[var(--color-saudi-green)] block mb-1">
-                                  {isAr 
-                                    ? v.category === 'suv' ? 'دفع رباعي (عائلي)' : v.category === 'sedan' ? 'سيدان' : v.category === 'van' ? 'فان' : v.category === 'luxury' ? 'نخبة / VIP' : 'باصات' 
-                                    : v.category}
-                                </span>
+                            <div>
+                              <div className="mb-4">
+                                {v.category && (
+                                  <span className="text-[10px] uppercase font-bold tracking-widest text-[var(--color-saudi-green)] block mb-1">
+                                    {isAr 
+                                      ? v.category === 'suv' ? 'دفع رباعي (عائلي)' : v.category === 'sedan' ? 'سيدان' : v.category === 'van' ? 'فان' : v.category === 'luxury' ? 'نخبة / VIP' : 'باصات' 
+                                      : v.category}
+                                  </span>
+                                )}
+                                <h2 className="text-xl font-extrabold text-[var(--color-dark-charcoal)] leading-tight">
+                                  {displayTitle}
+                                </h2>
+                                {v.description && (
+                                  <p className="text-xs text-slate-600 mt-2 line-clamp-2 leading-relaxed font-normal">
+                                    {v.description}
+                                  </p>
+                                )}
+                              </div>
+
+                              {/* Core Specs / Capacities */}
+                              <div className="grid grid-cols-2 gap-3 mb-4 border-y border-slate-100 py-3.5">
+                                <div className="flex items-center gap-2">
+                                  <div className="w-8 h-8 rounded-lg bg-gray-50 flex items-center justify-center shrink-0">
+                                    <Users size={14} className="text-[var(--color-saudi-green)]" />
+                                  </div>
+                                  <div>
+                                    <span className="block text-[10px] text-gray-500 font-bold uppercase tracking-wider">{t('pass')}</span>
+                                    <span className="block text-sm font-extrabold text-[var(--color-dark-charcoal)]">{v.passengerCapacity} Max</span>
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <div className="w-8 h-8 rounded-lg bg-gray-50 flex items-center justify-center shrink-0">
+                                    <Briefcase size={14} className="text-[var(--color-luxury-gold)]" />
+                                  </div>
+                                  <div>
+                                    <span className="block text-[10px] text-gray-500 font-bold uppercase tracking-wider">{t('luggage_short')}</span>
+                                    <span className="block text-sm font-extrabold text-[var(--color-dark-charcoal)]">{v.luggageCapacity} Bags</span>
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Key Highlights / Features */}
+                              {(featuresList.length > 0 || getDetailedSpecs(v, isAr).length > 0) && (
+                                <div className="mb-4">
+                                  <ul className="space-y-1.5">
+                                    {featuresList.slice(0, 2).map((feat, i) => (
+                                      <li key={i} className="flex items-start gap-2 text-xs text-gray-700 font-medium">
+                                        <Check size={14} className="text-[var(--color-saudi-green)] shrink-0 mt-0.5" />
+                                        <span>{feat}</span>
+                                      </li>
+                                    ))}
+                                    {featuresList.length === 0 && getDetailedSpecs(v, isAr).slice(0, 3).map((spec, i) => (
+                                      <li key={i} className="flex items-start gap-2 text-xs text-gray-700 font-medium">
+                                        <Check size={14} className="text-[var(--color-saudi-green)] shrink-0 mt-0.5" />
+                                        <span><strong className="font-bold text-gray-900">{spec.label}:</strong> {spec.value}</span>
+                                      </li>
+                                    ))}
+                                  </ul>
+                                </div>
                               )}
-                              <h2 className="text-xl font-extrabold text-[var(--color-dark-charcoal)] leading-tight">
-                                {displayTitle}
-                              </h2>
                             </div>
 
-                            {/* Core Specs / Capacities */}
-                            <div className="grid grid-cols-2 gap-3 mb-5 border-y border-slate-100 py-4">
-                              <div className="flex items-center gap-2">
-                                <div className="w-8 h-8 rounded-lg bg-gray-50 flex items-center justify-center shrink-0">
-                                  <Users size={14} className="text-[var(--color-saudi-green)]" />
-                                </div>
+                            {/* Price & Actions Section */}
+                            <div className="mt-auto pt-2">
+                              <div className="flex items-center justify-between gap-2 mb-3">
                                 <div>
-                                  <span className="block text-[10px] text-gray-500 font-bold uppercase tracking-wider">{t('pass')}</span>
-                                  <span className="block text-sm font-extrabold text-[var(--color-dark-charcoal)]">{v.passengerCapacity} Max</span>
+                                  <span className="text-[10px] text-gray-500 font-bold uppercase tracking-wider block">{t('starting_from')}</span>
+                                  <div className="flex items-baseline gap-1">
+                                    <span className="text-xl font-black text-[var(--color-saudi-green)] leading-none">{v.startingPrice || 150}</span>
+                                    <span className="text-xs font-bold text-gray-500">{t('sar')}</span>
+                                  </div>
                                 </div>
+                                <span className="text-[10px] font-extrabold text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200/80 shadow-2xs">
+                                  ✨ VIP Chauffeur
+                                </span>
                               </div>
-                              <div className="flex items-center gap-2">
-                                <div className="w-8 h-8 rounded-lg bg-gray-50 flex items-center justify-center shrink-0">
-                                  <Briefcase size={14} className="text-[var(--color-luxury-gold)]" />
-                                </div>
-                                <div>
-                                  <span className="block text-[10px] text-gray-500 font-bold uppercase tracking-wider">{t('luggage_short')}</span>
-                                  <span className="block text-sm font-extrabold text-[var(--color-dark-charcoal)]">{v.luggageCapacity} Bags</span>
-                                </div>
-                              </div>
-                            </div>
 
-                            {/* Key Highlights / Features */}
-                            {(featuresList.length > 0 || getDetailedSpecs(v, isAr).length > 0) && (
-                              <div className="mb-6 flex-grow">
-                                <ul className="space-y-2">
-                                  {featuresList.slice(0, 2).map((feat, i) => (
-                                    <li key={i} className="flex items-start gap-2 text-xs text-gray-700 font-medium">
-                                      <Check size={14} className="text-[var(--color-saudi-green)] shrink-0 mt-0.5" />
-                                      <span>{feat}</span>
-                                    </li>
-                                  ))}
-                                  {featuresList.length === 0 && getDetailedSpecs(v, isAr).slice(0, 3).map((spec, i) => (
-                                    <li key={i} className="flex items-start gap-2 text-xs text-gray-700 font-medium">
-                                      <Check size={14} className="text-[var(--color-saudi-green)] shrink-0 mt-0.5" />
-                                      <span><strong className="font-bold text-gray-900">{spec.label}:</strong> {spec.value}</span>
-                                    </li>
-                                  ))}
-                                </ul>
+                              <div className="flex gap-2.5 pt-3 border-t border-gray-100">
+                                <Link 
+                                  to={`/booking?vehicle=${v.id}`}
+                                  className="flex-1 bg-[var(--color-dark-charcoal)] hover:bg-black text-white text-center py-2.5 sm:py-3 rounded-xl font-bold text-xs uppercase tracking-wider transition-colors shadow-sm hover:shadow"
+                                >
+                                  {t('book_ride')}
+                                </Link>
+                                
+                                <button 
+                                  onClick={() => openWhatsApp('booking', `Hello! I would like to inquire about the ${v.name} for my Umrah transport.`)}
+                                  className="flex-1 bg-white hover:bg-emerald-50/50 text-[#25D366] border border-gray-200 hover:border-[#25D366]/40 text-center py-2.5 sm:py-3 rounded-xl font-bold text-xs uppercase tracking-wider transition-colors flex items-center justify-center gap-1.5 shadow-2xs"
+                                >
+                                  <MessageSquare size={14} /> WhatsApp
+                                </button>
                               </div>
-                            )}
-
-                            {/* Actions / Book Now */}
-                            <div className="mt-auto flex gap-3 pt-4 border-t border-gray-100">
-                              <Link 
-                                to={`/booking?vehicle=${v.id}`}
-                                className="flex-1 bg-[var(--color-dark-charcoal)] hover:bg-black text-white text-center py-3 rounded-xl font-bold text-xs uppercase tracking-wider transition-colors"
-                              >
-                                {t('book_ride')}
-                              </Link>
-                              
-                              <button 
-                                onClick={() => openWhatsApp('booking', `Hello! I would like to inquire about the ${v.name} for my Umrah transport.`)}
-                                className="flex-1 bg-white hover:bg-gray-50 text-[#25D366] border border-gray-200 text-center py-3 rounded-xl font-bold text-xs uppercase tracking-wider transition-colors flex items-center justify-center gap-1.5"
-                              >
-                                <MessageSquare size={14} /> WhatsApp
-                              </button>
                             </div>
 
                           </div>

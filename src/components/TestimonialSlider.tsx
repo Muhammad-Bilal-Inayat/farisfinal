@@ -193,8 +193,8 @@ export default function TestimonialSlider() {
   const touchStartXRef = useRef<number | null>(null);
 
   // Fetch live testimonials if present in database
-  useEffect(() => {
-    fetch('/api/testimonials')
+  const loadTestimonials = () => {
+    fetch('/api/testimonials', { cache: 'no-store' })
       .then(res => res.json())
       .then(data => {
         if (Array.isArray(data) && data.length > 0) {
@@ -215,6 +215,17 @@ export default function TestimonialSlider() {
       .catch(() => {
         // Fallback to rich curated reviews
       });
+  };
+
+  useEffect(() => {
+    loadTestimonials();
+
+    const handleSync = () => loadTestimonials();
+    window.addEventListener('faris_reviews_updated', handleSync);
+
+    return () => {
+      window.removeEventListener('faris_reviews_updated', handleSync);
+    };
   }, []);
 
   // Update visible items count according to screen width

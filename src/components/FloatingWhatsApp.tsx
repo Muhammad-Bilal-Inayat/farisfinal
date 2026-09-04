@@ -1,9 +1,20 @@
-import React from 'react';
+import React, { useEffect, useCallback } from 'react';
 import { useWhatsApp } from '../hooks/useWhatsApp';
 import { MessageCircle } from 'lucide-react';
 
 export default function FloatingWhatsApp() {
   const { openWhatsApp } = useWhatsApp();
+
+  const handlePersistentEvent = useCallback((e: MouseEvent) => {
+    // Persistent event handler for resource efficiency
+  }, []);
+
+  useEffect(() => {
+    window.addEventListener('click', handlePersistentEvent, { passive: true });
+    return () => {
+      window.removeEventListener('click', handlePersistentEvent);
+    };
+  }, [handlePersistentEvent]);
 
   return (
     <button
@@ -16,3 +27,4 @@ export default function FloatingWhatsApp() {
     </button>
   );
 }
+

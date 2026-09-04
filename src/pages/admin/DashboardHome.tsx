@@ -30,7 +30,10 @@ export default function DashboardHome({ setActiveTab }: { setActiveTab?: (t: any
         fetch('/api/admin/messages', { headers: { 'Authorization': `Bearer ${token}` } })
       ]);
 
-      if (bRes.ok) setBookings(await bRes.json());
+      if (bRes.ok) {
+        const d = await bRes.json();
+        setBookings(Array.isArray(d) ? d : (d.bookings || []));
+      }
       if (vRes.ok) setVehicles(await vRes.json());
       if (mRes.ok) setMessages(await mRes.json());
     } catch (e) {

@@ -1,4 +1,3 @@
-import AdminHomeEditor from './pages/admin/AdminHomeEditor';
 import { VisualEditorProvider } from './components/VisualEditorContext';
 import { BookingTrackerProvider } from './context/BookingTrackerContext';
 import BookingStatusModal from './components/BookingStatusModal';
@@ -27,6 +26,7 @@ const RoutesRates = React.lazy(() => import('./pages/RoutesRates'));
 const Booking = React.lazy(() => import('./pages/Booking'));
 const TrackBooking = React.lazy(() => import('./pages/TrackBooking'));
 const AdminDashboard = React.lazy(() => import('./pages/admin/Dashboard'));
+const AdminHomeEditor = React.lazy(() => import('./pages/admin/AdminHomeEditor'));
 const Login = React.lazy(() => import('./pages/Login'));
 const Register = React.lazy(() => import('./pages/Register'));
 const UserDashboard = React.lazy(() => import('./pages/Dashboard'));
@@ -34,6 +34,7 @@ const Services = React.lazy(() => import('./pages/Services'));
 const Ziyarat = React.lazy(() => import('./pages/Ziyarat'));
 const Faq = React.lazy(() => import('./pages/Faq'));
 const Contact = React.lazy(() => import('./pages/Contact'));
+const Reviews = React.lazy(() => import('./pages/Reviews'));
 const Terms = React.lazy(() => import('./pages/Terms'));
 const Privacy = React.lazy(() => import('./pages/Privacy'));
 
@@ -63,6 +64,7 @@ export default function App() {
               <Route path="/ziyarat" element={<Ziyarat />} />
               <Route path="/faq" element={<Faq />} />
               <Route path="/contact" element={<Contact />} />
+              <Route path="/reviews" element={<Reviews />} />
               <Route path="/terms" element={<Terms />} />
               <Route path="/privacy" element={<Privacy />} />
               <Route path="/booking" element={<Booking />} />

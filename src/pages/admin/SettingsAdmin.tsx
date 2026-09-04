@@ -98,6 +98,7 @@ export default function SettingsAdmin() {
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('adminToken')}` },
         body: JSON.stringify({
           phoneNumber: settings.phoneNumber,
+          adminNotificationPhone: settings.adminNotificationPhone || settings.phoneNumber,
           confirmationMessage: settings.confirmationMessage,
           generalMessage: settings.generalMessage
         })
@@ -268,6 +269,8 @@ export default function SettingsAdmin() {
                   {isAr ? 'هذا الرقم يُستخدم في جميع أزرار الحجز والتواصل الفوري في الموقع كامل' : 'This number triggers whenever a pilgrim clicks WhatsApp, Book Now, or Inquire.'}
                 </p>
               </div>
+
+
 
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">
