@@ -33,7 +33,7 @@ export default function RoutesRates() {
   const [selectedRouteByVehicle, setSelectedRouteByVehicle] = useState<Record<string, any>>({});
   const mobileTabsRef = useRef<HTMLDivElement>(null);
 
-  const [dynamicVehicles, setDynamicVehicles] = useState<VehicleFleet[]>(FLEET_VEHICLES_DATA);
+  const [dynamicVehicles, setDynamicVehicles] = useState<VehicleFleet[]>([]);
 
   useEffect(() => {
     const pillFromUrl = searchParams.get('pill') || searchParams.get('route');
@@ -92,18 +92,8 @@ export default function RoutesRates() {
             luggage: `${lVal} Big Size`,
             luggageAr: `${lVal} حقائب كبيرة`,
             image: getVehicleImageByName(v.name, v.imageUrl),
-            routes: vRoutes.length > 0 ? vRoutes : (FLEET_VEHICLES_DATA.find(f => f.id === 'gmc-xl')?.routes || [])
+            routes: vRoutes
           };
-        });
-
-        // Sort vehicles by displayOrder (or prioritize GMC if tied)
-        enriched.sort((a: any, b: any) => {
-          const aOrder = a.displayOrder ?? a.display_order ?? 99;
-          const bOrder = b.displayOrder ?? b.display_order ?? 99;
-          if (aOrder !== bOrder) return aOrder - bOrder;
-          const aGmc = a.name.toLowerCase().includes('gmc') ? -1 : 1;
-          const bGmc = b.name.toLowerCase().includes('gmc') ? -1 : 1;
-          return aGmc - bGmc;
         });
 
         if (enriched.length > 0) {

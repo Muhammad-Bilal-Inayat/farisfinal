@@ -527,11 +527,7 @@ export default function Home() {
               </div>
 
               <div className="grid grid-cols-3 gap-1.5 sm:gap-2 mt-2.5 sm:mt-3">
-                {(vehicles.length > 0 ? vehicles.slice(0, 3) : [
-                  { id: 1, name: 'GMC XL 2025', passengerCapacity: 7, luggageCapacity: 8 },
-                  { id: 2, name: 'Hyundai Staria', passengerCapacity: 8, luggageCapacity: 8 },
-                  { id: 3, name: 'Ford Taurus', passengerCapacity: 4, luggageCapacity: 3 }
-                ]).map((veh: any, idx: number) => (
+                {vehicles.slice(0, 3).map((veh: any, idx: number) => (
                   <div key={veh.id || idx} className="bg-[#F1F4F8] p-2 sm:p-2.5 rounded-xl border border-slate-200/80 text-center shadow-2xs">
                     <span className="text-[10px] sm:text-xs text-gray-600 font-bold uppercase block truncate">{veh.name}</span>
                     <span className="text-xs sm:text-sm md:text-base font-extrabold text-[var(--color-dark-charcoal)]">

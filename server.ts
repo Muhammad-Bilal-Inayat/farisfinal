@@ -1989,6 +1989,8 @@ async function startServer() {
 
       const inserted = await db.insert(vehicles).values(payload).returning().get();
       
+      invalidateCacheTag("vehicles:");
+
       // Record audit log
       const adminUser = (req as any).user;
       await db.insert(admin_audit_logs).values({
